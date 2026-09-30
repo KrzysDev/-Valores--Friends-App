@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+from datetime import datetime
 
 
 class Block(BaseModel):
@@ -35,3 +37,40 @@ class AuthResponseModel(BaseModel):
 
     user: Any
     access_token: Optional[str] = None
+
+
+class LikeRequest(BaseModel):
+    liked_id: UUID
+
+
+class LikeResponse(BaseModel):
+    is_match: bool
+    conversation_id: Optional[UUID] = None
+
+
+class MessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+
+class MessageResponse(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    sender_id: UUID
+    content: str
+    sent_at: datetime
+    status: str  # 'read' | 'unread'
+
+
+class ConversationResponse(BaseModel):
+    id: UUID
+    other_user_id: UUID
+    other_user_nickname: Optional[str] = None
+    last_message: Optional[MessageResponse] = None
+    unread_count: int
+    updated_at: datetime
+
+
+class MatchResponse(BaseModel):
+    conversation_id: UUID
+    other_user_id: UUID
+    created_at: datetime
