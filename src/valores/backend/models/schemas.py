@@ -2,6 +2,17 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Any, Dict, Optional
 
 
+class Block(BaseModel):
+    """A single block on a user's aesthetic board."""
+    name: str
+    description: str
+
+
+class Board(BaseModel):
+    """A user's aesthetic board containing multiple blocks."""
+    blocks: list[Block]
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)

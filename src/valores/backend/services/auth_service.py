@@ -45,9 +45,20 @@ class AuthService:
         self._admin_client().auth.admin.sign_out(access_token)
 
     def delete_account(self, access_token: str) -> None:
-        """Delete the user identified by a verified access token."""
+        """Delete the user identified by a verified access token.
+        
+        Also cascades to delete the user's board(s) using the service role key.
+        """
+        # Get user from the access token
         response = self._client().auth.get_user(access_token)  
         if response is None or response.user is None:
             raise RuntimeError("Invalid or expired token")
 
-        self._admin_client().auth.admin.delete_user(response.user.id)
+        user_id = response.user.id
+
+        # First, delete the user's board(s) using admin client
+        admin = self._admin_client()
+        admin.table("boards").delete().eq("user_id", user_id).execute()
+
+        # Then delete the user account
+        admin.auth.admin.delete_user(user_id)
