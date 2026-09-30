@@ -21,8 +21,8 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
-    # Optional extra metadata for the user profile
-    data: Optional[Dict[str, Any]] = None
+    age: int = Field(..., ge=13, le=100)
+
 
 
 class AuthResponseModel(BaseModel):

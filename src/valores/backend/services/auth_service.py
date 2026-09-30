@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, List
 
 from dotenv import find_dotenv, load_dotenv
 from supabase import Client, create_client
@@ -37,8 +37,47 @@ class AuthService:
             {"email": email, "password": password}
         )
 
-    def register(self, email: str, password: str) -> Any:
-        return self._client().auth.sign_up({"email": email, "password": password})
+    def register(self, email: str, password: str, age: int) -> Any:
+        """Register a new user and store their age in user_profiles."""
+        # Create the auth user
+        resp = self._client().auth.sign_up({"email": email, "password": password})
+        
+        if resp.user is None:
+            raise RuntimeError("Failed to create user")
+        
+        user_id = resp.user.id
+        
+        # Store age in user_profiles using admin client
+        admin = self._admin_client()
+        admin.table("user_profiles").insert({
+            "user_id": user_id,
+            "age": age
+        }).execute()
+        
+        return resp
+
+    def get_user_ids_by_age_range(self, youngest: int, oldest: int, exclude_user_id: str = None) -> List[str]:
+        """Get user IDs of users within the specified age range.
+        
+        Args:
+            youngest: Minimum age (inclusive)
+            oldest: Maximum age (inclusive)
+            exclude_user_id: Optional user ID to exclude from results
+            
+        Returns:
+            List of user IDs matching the criteria
+        """
+        admin = self._admin_client()
+        query = admin.table("user_profiles").select("user_id").gte("age", youngest).lte("age", oldest)
+        
+        if exclude_user_id:
+            query = query.neq("user_id", exclude_user_id)
+            
+        response = query.execute()
+
+        print("response: ", response)
+
+        return [row["user_id"] for row in response.data] if response.data else []
 
     def logout(self, access_token: str) -> None:
         """Invalidate the session belonging to the given access token."""
@@ -47,7 +86,7 @@ class AuthService:
     def delete_account(self, access_token: str) -> None:
         """Delete the user identified by a verified access token.
         
-        Also cascades to delete the user's board(s) using the service role key.
+        Also cascades to delete the user's board(s) and profile using the service role key.
         """
         # Get user from the access token
         response = self._client().auth.get_user(access_token)  
@@ -56,9 +95,10 @@ class AuthService:
 
         user_id = response.user.id
 
-        # First, delete the user's board(s) using admin client
+        # First, delete the user's board(s) and profile using admin client
         admin = self._admin_client()
         admin.table("boards").delete().eq("user_id", user_id).execute()
+        admin.table("user_profiles").delete().eq("user_id", user_id).execute()
 
         # Then delete the user account
         admin.auth.admin.delete_user(user_id)

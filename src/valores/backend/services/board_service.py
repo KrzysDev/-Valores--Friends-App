@@ -47,3 +47,15 @@ class BoardService:
     def delete_board_by_id(self, board_id: UUID, user_id: UUID) -> None:
         """Delete a specific board by ID (ensuring ownership)."""
         self._client.table("boards").delete().eq("id", str(board_id)).eq("user_id", str(user_id)).execute()
+
+    def get_boards_by_user_ids(self, user_ids: List[str]) -> List[Dict[str, Any]]:
+        """Get boards for a list of user IDs."""
+        if not user_ids:
+            return []
+        response = (
+            self._client.table("boards")
+            .select("*")
+            .in_("user_id", user_ids)
+            .execute()
+        )
+        return response.data if response.data else []
