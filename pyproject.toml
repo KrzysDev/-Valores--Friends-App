@@ -8,10 +8,12 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "dotenv>=0.9.9",
     "fastapi>=0.142.2",
     "slowapi>=0.1.10",
     "supabase>=2.31.0",
     "uvicorn>=0.54.0",
+    "email-validator>=2.0.0",
 ]
 
 [project.scripts]
