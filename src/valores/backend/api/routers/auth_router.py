@@ -16,11 +16,6 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=1)
-
-
 @router.post("/login", response_model=AuthResponseModel, status_code=status.HTTP_200_OK)
 async def login(request: LoginRequest, service: AuthService = Depends(AuthService)):
     """Log a user in and return the session data.
@@ -42,11 +37,12 @@ async def login(request: LoginRequest, service: AuthService = Depends(AuthServic
 async def register(request: RegisterRequest, service: AuthService = Depends(AuthService)):
     """Create a new user account.
 
+    ``age`` is required and stored in the user_profiles table for age-based filtering.
     ``data`` can contain any additional fields that should be stored in the
     ``user_metadata`` column of Supabase.
     """
     try:
-        resp = service.register(request.email, request.password)
+        resp = service.register(request.email, request.password, request.age)
         return {
             "user": resp.user,
             "access_token": getattr(resp.session, "access_token", None),
