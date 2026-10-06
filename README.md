@@ -6,20 +6,22 @@ Every dating or friendship app I've used starts the same way: a photo, and a few
 
 You get to know the person first. Everything else can come later.
 
-> **Status:** early development. The idea and design are done; the prototype is being built.
+> **Status:** early development. The prototype is already built and it is being polished.
 > **Built for:** Creator Colosseum Startup Competition
 > **Author:** Krzysztof Sokołowski
 > **Design doc:** [docs/design.md](docs/design.md)
 
 ---
 
-## 1. What is your startup idea?
+## Questions and Answers for the Creator Colosseum Startup Competition.
 
-Valores is a mobile app for making friends based on values and interests instead of looks. Each user builds a personal **aesthetic board**, a diagram of their life in essence, and other people discover them by swiping through short intro cards and opening their boards. When two people both show interest, they can start talking.
+### 1. What is your startup idea?
 
-Friendship is the goal. Dating can happen naturally, but it isn't what the app is built for.
+Valores is a mobile app for making friends based on values and interests instead of looks. Each user builds a personal **values board**, a diagram of their life in essence, and other people discover them by swiping through short intro cards and opening their boards. When two people both show interest, they can start talking.
 
-## 2. What problem are you solving, and why does it matter?
+Friendship is the goal. Dating can happen naturally, but it **IS NOT** what the app is built for.
+
+### 2. What problem are you solving, and why does it matter?
 
 **The problem.** Photo-first apps make appearance the gatekeeper. Before you learn anything about someone's character, humour or values, you've already judged them by how they look. This makes it easy to connect with people who are attractive to you but have very little in common with you.
 
@@ -29,14 +31,12 @@ Friendship is the goal. Dating can happen naturally, but it isn't what the app i
 
 ## 3. What is your solution, and how does it work?
 
-**The aesthetic board.** Users create a board made of blocks such as values, beliefs, books, films, free-time activities, and things they love. They choose what to show and decorate the board in their own style. There are no photo uploads, only text and a closed set of images.
+**The "values board".** Users create a board made of blocks such as values, beliefs, books, films, free-time activities, and things they love. They choose what to show and decorate the board in their own style. There are no photo uploads, only text and a closed set of images.
 
 **Discovering people.**
-1. You see a card with a one-sentence intro about a person.
-2. Tap the card to open their full board and explore it.
-3. If you'd like to get to know them, press **+**. If not, skip.
-
-**Connecting.** When two people both press +, they match and can chat.
+1. You see the name, age and blocks on the board which contain values of some person.
+2. If you think you have a lot in common, you swipe right if not you swipe left.
+3. The rest is pretty intuitive - if both of you swipe each other right, then you get a match.
 
 **What makes it different.** Other apps hide or blur photos and reveal them later (S'More, BlindLove, Lovetastic and others). Valores goes further: there are no photos, and the thing you swipe on is a rich, personal board instead of a short bio. The board *is* the profile.
 
@@ -64,7 +64,7 @@ Friendship is the goal. Dating can happen naturally, but it isn't what the app i
 
 **Where I'd start:** one city, one small community, then expand.
 
-**Competition.** Apps that de-emphasise photos already exist, and some hide them until you chat or both agree to reveal. Valores' difference is the **aesthetic board as the main unit of discovery**, and its focus on friendship built on values.
+**Competition.** Apps that de-emphasise photos already exist, and some hide them until you chat or both agree to reveal. Valores' difference is the **value board as the main unit of discovery**, and its focus on friendship built on values.
 
 ## 6. Technical details
 
@@ -88,8 +88,46 @@ Architecture, data model and key decisions are in [docs/design.md](docs/design.m
 
 ## 8. Run it locally
 
-*Coming soon, once the prototype is ready.*
+1. clone the repository
+```bash
+git clone https://github.com/KrzysDev/-Valores--Friends-App.git
+```
+
+2. locate the "backend" directory. 
+```
+    src/valores/backend
+```
+
+3. download the python dependecies
+```
+uv sync 
+```
+
+4. run the fastapi server like this:
+```bash
+    uv run uvicorn src.valores.backend.main:app --reload --host 0000 --port 8000
+```
+
+5. make sure flutter is installed on your device, and install the dependencies.
+
+6. locate the frontend direcotry. 
+```
+    src/valores/frontend/valores
+```
+
+7. plug your android / ios mobile device into your computer with USB cable, make sure debugging mode on it is enabled then run the frontend with following command:
+```
+flutter run
+```
+
+8. If you have done everything correctly app should be run on mobile device.
+
+9. You are all set. Enjoy!
 
 ---
 
-Made with the belief that the first thing you should know about someone is not their face.
+"More than your looks"
+
+---
+
+Copyright © Krzysztof Sokołowski 2026
