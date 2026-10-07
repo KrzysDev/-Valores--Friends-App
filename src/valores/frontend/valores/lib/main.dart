@@ -1,12 +1,4 @@
-// Valores – klient Flutter dla Twojego backendu FastAPI.
-// Zależności: http, google_fonts, shared_preferences (patrz pubspec.yaml).
-//
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║  !!! ZMIEŃ ADRES BACKENDU PONIŻEJ !!!                          ║
-// ║  Emulator Androida -> http://10.0.2.2:8000                     ║
-// ║  Prawdziwy telefon  -> http://<IP-komputera>:8000               ║
-// ║  Produkcja          -> https://twoja-domena.pl                  ║
-// ╚══════════════════════════════════════════════════════════════════╝
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
@@ -16,14 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ──────────────────────────────────────────────────────────────────
-//  ADRES BACKENDU – zmień na adres produkcyjny gdy wdrażasz
-// ──────────────────────────────────────────────────────────────────
-const String kBaseUrl = 'http://192.168.1.168:8000'; // <── ZMIEŃ TUTAJ
 
-// ───────────────────────────── DESIGN ─────────────────────────────
+const String kBaseUrl = 'http://192.168.1.168:8000'; 
 
-/// Paleta ciepłych kolorów (pomarańcz / bursztyn / terracotta)
 class C {
   static const canvas      = Color(0xFFFAF7F2);
   static const linen       = Color(0xFFF3EFEA);
@@ -46,7 +33,6 @@ class C {
   static const roseTint    = Color(0xFFF5DEDE);
 }
 
-/// Czcionka seryfowa – Newsreader
 TextStyle serif(double s, {bool italic = false, FontWeight w = FontWeight.w400, Color c = C.ink}) =>
     GoogleFonts.newsreader(
         fontSize: s,
@@ -76,7 +62,6 @@ ThemeData buildTheme() => ThemeData(
       ),
     );
 
-// ── reusable widgets ──
 
 class Pill extends StatelessWidget {
   final String label;
@@ -154,7 +139,6 @@ void toast(BuildContext c, String m) => ScaffoldMessenger.of(c)
 
 String err(Object e) => e is ApiException ? e.message : 'Brak połączenia z serwerem';
 
-// ───────────────────────────── MODELE ─────────────────────────────
 
 class Block {
   String name, description;
@@ -171,7 +155,7 @@ class BoardCard {
   final int? age;
   final List<Block> blocks;
   BoardCard(this.id, this.userId, this.name, this.age, this.blocks);
-  // Odpowiedź /discover/boards ma typ Dict – parsujemy tolerancyjnie.
+
   factory BoardCard.fromJson(Map<String, dynamic> j) {
     final inner = j['board'] is Map ? Map<String, dynamic>.from(j['board']) : j;
     final raw = inner['blocks'];
@@ -218,8 +202,6 @@ class Message {
       );
 }
 
-// ── Sugestie bloków z kolorami i ikonami ──
-
 class BlockSuggestion {
   final String name;
   final IconData icon;
@@ -244,13 +226,11 @@ const kBlockSuggestions = <BlockSuggestion>[
   BlockSuggestion('Jedzenie',      Icons.restaurant_outlined, C.rose,     C.roseTint,     'Ulubione kuchnie, dania, smaki?'),
 ];
 
-/// Zwraca kolor tła kafelka na podstawie nazwy bloku
 (Color, Color, IconData) blockStyle(String name) {
   final lower = name.toLowerCase();
   for (final s in kBlockSuggestions) {
     if (s.name.toLowerCase() == lower) return (s.tint, s.color, s.icon);
   }
-  // Generuj kolor z hashCode nazwy
   final fills = [
     (C.paper, C.ink, Icons.auto_awesome),
     (C.linen, C.ink, Icons.auto_awesome),
@@ -264,8 +244,6 @@ const kBlockSuggestions = <BlockSuggestion>[
   final idx = name.hashCode.abs() % fills.length;
   return fills[idx];
 }
-
-// ───────────────────────────── API ─────────────────────────────
 
 class ApiException implements Exception {
   final String message;
@@ -667,8 +645,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       );
 }
 
-// ───────────────────────────── SHELL + DOCK ─────────────────────────────
-
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
   @override
@@ -694,8 +670,6 @@ class _HomeShellState extends State<HomeShell> {
     super.dispose();
   }
 
-  /// Odpytuje backend o nieprzeczytane wiadomości i pokazuje powiadomienie,
-  /// gdy pojawi się nowa wiadomość (gdy aplikacja jest otwarta).
   Future<void> _pollUnread() async {
     if (Api.i.token == null) return;
     try {
@@ -726,7 +700,6 @@ class _HomeShellState extends State<HomeShell> {
             const BoardScreen(),
           ]),
         ),
-        // ── pływający dock (bottom bar) ──
         Align(
           alignment: Alignment.bottomCenter,
           child: SafeArea(
@@ -800,7 +773,6 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-// ───────────────────────────── TABLICA (kafelki) ─────────────────────────────
 
 class BoardTiles extends StatelessWidget {
   final List<Block> blocks;
@@ -851,7 +823,6 @@ class BoardTiles extends StatelessWidget {
   }
 }
 
-// ───────────────────────────── ODKRYWAJ (Tinder-style swipe) ─────────────────────────────
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -865,11 +836,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
   bool loading = true;
   String? error;
 
-  // Zakres wiekowy: ±3 lata od wieku użytkownika
   late int youngest;
   late int oldest;
 
-  // Animacje karty
   late AnimationController _swipeCtrl;
   late Animation<Offset> _slideAnim;
   late Animation<double> _rotateAnim;
@@ -939,21 +908,19 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
     final screenW = MediaQuery.of(context).size.width;
     final threshold = screenW * 0.3;
     final vx = d.velocity.pixelsPerSecond.dx;
-    final flick = vx.abs() > 700; // szybki fling decyduje o kierunku nawet bez przekroczenia progu
+    final flick = vx.abs() > 700; 
 
     if (_dragPos.dx > threshold || (flick && _dragPos.dx > 0)) {
-      // swipe right → like
+
       _animateOut(1, () => _like(cards[idx]), velocity: vx);
     } else if (_dragPos.dx < -threshold || (flick && _dragPos.dx < 0)) {
-      // swipe left → skip
+
       _animateOut(-1, () => _skip(cards[idx]), velocity: vx);
     } else {
-      // puszczono za wcześnie – karta płynnie wraca na środek
       _animateBack();
     }
   }
 
-  /// Animuje kartę od aktualnej pozycji do [end] wraz z rotacją [endRotation].
   void _animateCardTo(Offset end, double endRotation,
       {Duration duration = const Duration(milliseconds: 320), VoidCallback? onDone}) {
     if (_swipeCtrl.isAnimating) return;
@@ -974,7 +941,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
 
   void _animateOut(int direction, VoidCallback onDone, {double velocity = 0}) {
     final screenW = MediaQuery.of(context).size.width;
-    // Szybki fling → krótsza, bardziej dynamiczna animacja wyjścia
+
     final fast = velocity.abs() > 1500;
     _animateCardTo(
       Offset(direction * screenW * 1.5, _dragPos.dy),
@@ -1066,7 +1033,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
       body = AnimatedBuilder(
         animation: _swipeCtrl,
         builder: (_, child) {
-          // Wartości animacji muszą być odczytywane w każdej klatce.
           final offset = _swipeCtrl.isAnimating ? _slideAnim.value : _dragPos;
           final rotation = _swipeCtrl.isAnimating
               ? _rotateAnim.value
@@ -1075,7 +1041,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
           final skipOpacity = (-offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
 
           return Stack(clipBehavior: Clip.none, children: [
-          // Wskaźniki po bokach
+
           if (likeOpacity > 0)
             Positioned(
               left: 24,
@@ -1190,7 +1156,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
   }
 }
 
-/// Przycisk swipe (okrągły)
 class _RoundButton extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1222,8 +1187,6 @@ class _RoundButton extends StatelessWidget {
 }
 
 
-// ───────────────────────────── USTAWIENIA (zębatka) ─────────────────────────────
-
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -1243,7 +1206,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Informacje o koncie
+
           PaperCard(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -1269,7 +1232,7 @@ class SettingsScreen extends StatelessWidget {
             ]),
           ),
           const SizedBox(height: 16),
-          // Info o serwerze
+
           PaperCard(
             color: C.linen,
             padding: const EdgeInsets.all(16),
@@ -1286,7 +1249,6 @@ class SettingsScreen extends StatelessWidget {
             ]),
           ),
           const SizedBox(height: 24),
-          // Wyloguj
           _SettingsTile(
             icon: Icons.logout,
             iconColor: C.ink,
@@ -1314,7 +1276,6 @@ class SettingsScreen extends StatelessWidget {
             },
           ),
           const SizedBox(height: 8),
-          // Usuń konto
           _SettingsTile(
             icon: Icons.delete_outline,
             iconColor: C.terracotta,
@@ -1422,8 +1383,6 @@ class _SettingsTile extends StatelessWidget {
         ),
       );
 }
-
-// ───────────────────────────── ROZMOWY ─────────────────────────────
 
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key});
@@ -1556,8 +1515,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ),
       ]);
 }
-
-// ───────────────────────────── CZAT ─────────────────────────────
 
 class ChatScreen extends StatefulWidget {
   final String convId;
@@ -1752,8 +1709,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-// ───────────────────────────── MOJA TABLICA ─────────────────────────────
-
 class BoardScreen extends StatefulWidget {
   const BoardScreen({super.key});
   @override
@@ -1838,8 +1793,6 @@ class _BoardScreenState extends State<BoardScreen> {
       );
 }
 
-// ── Bottom sheet edycji bloku ──
-
 class _BlockSheet extends StatefulWidget {
   final Block? block;
   const _BlockSheet(this.block);
@@ -1855,7 +1808,6 @@ class _BlockSheetState extends State<_BlockSheet> {
   @override
   void initState() {
     super.initState();
-    // Odszukaj hint dla istniejącego bloku
     if (widget.block != null) {
       for (final s in kBlockSuggestions) {
         if (s.name.toLowerCase() == widget.block!.name.toLowerCase()) {
@@ -1868,7 +1820,6 @@ class _BlockSheetState extends State<_BlockSheet> {
   }
 
   void _onNameChanged() {
-    // Sprawdź czy pasuje do sugestii → aktualizuj hint
     final lower = name.text.toLowerCase().trim();
     String? hint;
     for (final s in kBlockSuggestions) {
