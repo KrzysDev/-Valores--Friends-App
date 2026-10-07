@@ -785,7 +785,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
   late AnimationController _swipeCtrl;
   late Animation<Offset> _slideAnim;
   late Animation<double> _rotateAnim;
-  Offset _dragStart = Offset.zero;
+
   Offset _dragPos = Offset.zero;
 
   @override
@@ -835,47 +835,69 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
   }
 
   void _onPanStart(DragStartDetails d) {
-    _dragStart = d.localPosition;
+    if (_swipeCtrl.isAnimating) return;
+    setState(() => _dragPos = Offset.zero);
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
+    if (_swipeCtrl.isAnimating) return;
     setState(() {
-      _dragPos = d.localPosition - _dragStart;
+      _dragPos += d.delta;
     });
   }
 
   void _onPanEnd(DragEndDetails d) {
+    if (_swipeCtrl.isAnimating) return;
     final screenW = MediaQuery.of(context).size.width;
     final threshold = screenW * 0.3;
+    final vx = d.velocity.pixelsPerSecond.dx;
+    final flick = vx.abs() > 700; // szybki fling decyduje o kierunku nawet bez przekroczenia progu
 
-    if (_dragPos.dx > threshold) {
+    if (_dragPos.dx > threshold || (flick && _dragPos.dx > 0)) {
       // swipe right → like
-      _animateOut(1, () => _like(cards[idx]));
-    } else if (_dragPos.dx < -threshold) {
+      _animateOut(1, () => _like(cards[idx]), velocity: vx);
+    } else if (_dragPos.dx < -threshold || (flick && _dragPos.dx < 0)) {
       // swipe left → skip
-      _animateOut(-1, _skip);
+      _animateOut(-1, _skip, velocity: vx);
     } else {
-      // wróć do środka
-      setState(() => _dragPos = Offset.zero);
+      // puszczono za wcześnie – karta płynnie wraca na środek
+      _animateBack();
     }
   }
 
-  void _animateOut(int direction, VoidCallback onDone) {
+  /// Animuje kartę od aktualnej pozycji do [end] wraz z rotacją [endRotation].
+  void _animateCardTo(Offset end, double endRotation,
+      {Duration duration = const Duration(milliseconds: 320), VoidCallback? onDone}) {
+    if (_swipeCtrl.isAnimating) return;
     final screenW = MediaQuery.of(context).size.width;
-    _slideAnim = Tween<Offset>(
-      begin: _dragPos,
-      end: Offset(direction * screenW * 1.5, _dragPos.dy),
-    ).animate(CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOut));
-    _rotateAnim = Tween<double>(
-      begin: _dragPos.dx / screenW * 0.3,
-      end: direction * 0.5,
-    ).animate(CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOut));
+    _slideAnim = Tween<Offset>(begin: _dragPos, end: end).animate(
+        CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOutCubic));
+    _rotateAnim = Tween<double>(begin: _dragPos.dx / screenW * 0.3, end: endRotation).animate(
+        CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOutCubic));
 
+    _swipeCtrl.duration = duration;
     _swipeCtrl.forward(from: 0).then((_) {
+      if (!mounted) return;
       _swipeCtrl.reset();
       setState(() => _dragPos = Offset.zero);
-      onDone();
+      onDone?.call();
     });
+  }
+
+  void _animateOut(int direction, VoidCallback onDone, {double velocity = 0}) {
+    final screenW = MediaQuery.of(context).size.width;
+    // Szybki fling → krótsza, bardziej dynamiczna animacja wyjścia
+    final fast = velocity.abs() > 1500;
+    _animateCardTo(
+      Offset(direction * screenW * 1.5, _dragPos.dy),
+      direction * 0.5,
+      duration: Duration(milliseconds: fast ? 220 : 340),
+      onDone: onDone,
+    );
+  }
+
+  void _animateBack() {
+    _animateCardTo(Offset.zero, 0);
   }
 
   void _skip() => setState(() => idx++);
@@ -948,17 +970,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
     } else {
       final c = cards[idx];
       final screenW = MediaQuery.of(context).size.width;
-      // Oblicz offset i rotację
-      final offset = _swipeCtrl.isAnimating ? _slideAnim.value : _dragPos;
-      final rotation = _swipeCtrl.isAnimating
-          ? _rotateAnim.value
-          : _dragPos.dx / screenW * 0.3;
-      final likeOpacity = (offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
-      final skipOpacity = (-offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
-
       body = AnimatedBuilder(
         animation: _swipeCtrl,
-        builder: (_, child) => Stack(children: [
+        builder: (_, child) {
+          // Wartości animacji muszą być odczytywane w każdej klatce.
+          final offset = _swipeCtrl.isAnimating ? _slideAnim.value : _dragPos;
+          final rotation = _swipeCtrl.isAnimating
+              ? _rotateAnim.value
+              : _dragPos.dx / screenW * 0.3;
+          final likeOpacity = (offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
+          final skipOpacity = (-offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
+
+          return Stack(clipBehavior: Clip.none, children: [
           // Wskaźniki po bokach
           if (likeOpacity > 0)
             Positioned(
@@ -1004,11 +1027,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
               child: child,
             ),
           ),
-        ]),
+          ]);
+        },
         child: GestureDetector(
-          onPanStart: _onPanStart,
-          onPanUpdate: _onPanUpdate,
-          onPanEnd: _onPanEnd,
+          onHorizontalDragStart: _onPanStart,
+          onHorizontalDragUpdate: _onPanUpdate,
+          onHorizontalDragEnd: _onPanEnd,
+          onHorizontalDragCancel: () {
+            if (!_swipeCtrl.isAnimating) _animateBack();
+          },
           child: PaperCard(
             color: C.linen,
             padding: const EdgeInsets.all(14),
