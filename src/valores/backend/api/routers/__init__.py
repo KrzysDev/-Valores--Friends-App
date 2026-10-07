@@ -4,6 +4,7 @@ from .discover_router import router as discover_router
 from .like_router import router as like_router
 from .conversation_router import router as conversation_router
 from .message_router import router as message_router
+from .swipe_router import router as swipe_router
 
 __all__ = [
     "auth_router",
@@ -12,4 +13,5 @@ __all__ = [
     "like_router",
     "conversation_router",
     "message_router",
+    "swipe_router",
 ]

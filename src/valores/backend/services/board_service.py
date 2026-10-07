@@ -30,15 +30,18 @@ class BoardService:
         return response.data[0]
 
     def get_board(self, user_id: UUID) -> Optional[Dict[str, Any]]:
-        """Get the board for a user (assuming one board per user)."""
+        """Get the board for a user (assuming one board per user).
+
+        Returns ``None`` when the user has not created a board yet.
+        """
         response = (
             self._client.table("boards")
             .select("*")
             .eq("user_id", str(user_id))
-            .single()
+            .limit(1)
             .execute()
         )
-        return response.data
+        return response.data[0] if response.data else None
 
     def delete_board(self, user_id: UUID) -> None:
         """Delete the board for a user."""

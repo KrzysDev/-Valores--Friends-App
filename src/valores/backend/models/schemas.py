@@ -49,6 +49,16 @@ class LikeResponse(BaseModel):
     conversation_id: Optional[UUID] = None
 
 
+class SwipeRequest(BaseModel):
+    """A single swipe on another user's board.
+
+    ``direction`` is ``'right'`` (show interest / like) or ``'left'`` (skip).
+    """
+
+    swiped_id: UUID
+    direction: str = Field(..., pattern="^(left|right)$")
+
+
 class MessageCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=5000)
 

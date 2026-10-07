@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 
 from ...services.auth_service import AuthService
 from ...services.conversation_service import ConversationService
+from ...services.message_service import MessageService
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -30,6 +31,14 @@ def get_conversation_service(
     return ConversationService(auth_service._client())
 
 
+def get_message_service(
+    access_token: str = Query(..., alias="access_token"),
+    auth_service: AuthService = Depends(AuthService),
+) -> MessageService:
+    """Create a MessageService with the user's authenticated client."""
+    return MessageService(auth_service._client())
+
+
 @router.get("", response_model=List[Dict[str, Any]], status_code=status.HTTP_200_OK)
 async def get_conversations(
     user_id: UUID = Depends(get_user_id_from_token),
@@ -43,6 +52,19 @@ async def get_conversations(
     try:
         conversations = await conversation_service.get_user_conversations(user_id)
         return conversations
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.get("/unread-count", response_model=Dict[str, int], status_code=status.HTTP_200_OK)
+async def get_total_unread_count(
+    user_id: UUID = Depends(get_user_id_from_token),
+    message_service: MessageService = Depends(get_message_service),
+):
+    """Get the total number of unread messages for the current user."""
+    try:
+        count = await message_service.get_unread_count(user_id)
+        return {"unread_count": int(count or 0)}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
