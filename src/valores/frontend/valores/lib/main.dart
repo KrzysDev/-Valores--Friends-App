@@ -19,7 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ──────────────────────────────────────────────────────────────────
 //  ADRES BACKENDU – zmień na adres produkcyjny gdy wdrażasz
 // ──────────────────────────────────────────────────────────────────
-const String kBaseUrl = 'http://127.0.0.1:8000'; // <── ZMIEŃ TUTAJ
+const String kBaseUrl = 'http://192.168.1.168:8000'; // <── ZMIEŃ TUTAJ
 
 // ───────────────────────────── DESIGN ─────────────────────────────
 
@@ -289,7 +289,10 @@ class Api extends ChangeNotifier {
     _p = await SharedPreferences.getInstance();
     token = _p.getString('token');
     userId = _p.getString('userId');
-    if (token != null && userId != null) _loadUser();
+    if (token != null && userId != null) {
+      _loadUser();
+      fetchMyBoard();
+    }
   }
 
   void _loadUser() {
@@ -373,6 +376,7 @@ class Api extends ChangeNotifier {
     _loadUser();
     if (newAge != null) age = newAge;
     await _saveUser();
+    await fetchMyBoard();
     notifyListeners();
   }
 
@@ -418,6 +422,27 @@ class Api extends ChangeNotifier {
     await _saveUser();
   }
 
+  /// Wczytuje własną tablicę z bazy (np. po reinstalacji lub na innym urządzeniu).
+  Future<void> fetchMyBoard() async {
+    try {
+      final d = await _req('GET', '/boards/me');
+      if (d is! Map) return;
+      final row = Map<String, dynamic>.from(d);
+      final inner = row['board'] is Map ? Map<String, dynamic>.from(row['board']) : null;
+      final raw = inner?['blocks'];
+      if (raw is List) {
+        myBlocks = raw
+            .whereType<Map>()
+            .map((e) => Block.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+      final id = row['id']?.toString() ?? inner?['id']?.toString();
+      if (id != null) boardId = id;
+      await _saveUser();
+      notifyListeners();
+    } catch (_) {}
+  }
+
   Future<List<BoardCard>> discover(int lo, int hi) async {
     final d = await _req('GET', '/discover/boards', query: {'youngest': '$lo', 'oldest': '$hi'}) as List;
     return d
@@ -442,6 +467,17 @@ class Api extends ChangeNotifier {
       }
       rethrow;
     }
+  }
+
+  /// Zapisuje swipe (lewo = pomiń, prawo = zainteresowanie) w bazie.
+  /// Prawo dodatkowo tworzy polubienie i sprawdza dopasowanie.
+  Future<Map<String, dynamic>> swipe(String id, String direction) async {
+    final d = await _req('POST', '/swipes', body: {'swiped_id': id, 'direction': direction});
+    if (direction == 'right') {
+      liked.add(id);
+      await _saveUser();
+    }
+    return Map<String, dynamic>.from(d);
   }
 
   Future<void> unlike(String id) async {
@@ -473,6 +509,10 @@ class Api extends ChangeNotifier {
 
   Future<int> unreadCount(String id) async =>
       ((await _req('GET', '/conversations/$id/messages/unread-count'))['unread_count'] as num).toInt();
+
+  /// Łączna liczba nieprzeczytanych wiadomości (do badge'a i powiadomień).
+  Future<int> totalUnread() async =>
+      ((await _req('GET', '/conversations/unread-count'))['unread_count'] as num).toInt();
 }
 
 // ───────────────────────────── START ─────────────────────────────
@@ -637,6 +677,37 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int tab = 0, chatsRev = 0;
+  int unread = 0;
+  bool _firstPoll = true;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollUnread();
+    _poll = Timer.periodic(const Duration(seconds: 10), (_) => _pollUnread());
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  /// Odpytuje backend o nieprzeczytane wiadomości i pokazuje powiadomienie,
+  /// gdy pojawi się nowa wiadomość (gdy aplikacja jest otwarta).
+  Future<void> _pollUnread() async {
+    if (Api.i.token == null) return;
+    try {
+      final n = await Api.i.totalUnread();
+      if (!mounted) return;
+      if (!_firstPoll && n > unread) {
+        toast(context, 'Nowa wiadomość 💬');
+      }
+      _firstPoll = false;
+      if (n != unread) setState(() => unread = n);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -690,7 +761,24 @@ class _HomeShellState extends State<HomeShell> {
                               borderRadius: BorderRadius.circular(9999),
                             ),
                             child: Row(children: [
-                              Icon(items[n].$1, size: 22, color: tab == n ? C.terracotta : C.inkSoft),
+                              Stack(clipBehavior: Clip.none, children: [
+                                Icon(items[n].$1, size: 22, color: tab == n ? C.terracotta : C.inkSoft),
+                                if (n == 1 && unread > 0)
+                                  Positioned(
+                                    right: -6,
+                                    top: -6,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      constraints: const BoxConstraints(minWidth: 16),
+                                      decoration: BoxDecoration(
+                                          color: C.terracotta, borderRadius: BorderRadius.circular(9999)),
+                                      child: Text(unread > 9 ? '9+' : '$unread',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                              color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                                    ),
+                                  ),
+                              ]),
                               if (tab == n) ...[
                                 const SizedBox(width: 8),
                                 Text(items[n].$2,
@@ -858,7 +946,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
       _animateOut(1, () => _like(cards[idx]), velocity: vx);
     } else if (_dragPos.dx < -threshold || (flick && _dragPos.dx < 0)) {
       // swipe left → skip
-      _animateOut(-1, _skip, velocity: vx);
+      _animateOut(-1, () => _skip(cards[idx]), velocity: vx);
     } else {
       // puszczono za wcześnie – karta płynnie wraca na środek
       _animateBack();
@@ -900,12 +988,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
     _animateCardTo(Offset.zero, 0);
   }
 
-  void _skip() => setState(() => idx++);
+  Future<void> _skip(BoardCard c) async {
+    setState(() => idx++);
+    try {
+      await Api.i.swipe(c.userId, 'left');
+    } catch (_) {}
+  }
 
   Future<void> _like(BoardCard c) async {
     setState(() => idx++);
     try {
-      final r = await Api.i.like(c.userId);
+      final r = await Api.i.swipe(c.userId, 'right');
       if (!mounted) return;
       if (r['is_match'] == true && r['conversation_id'] != null) {
         _showMatchDialog(r['conversation_id'].toString());
@@ -1081,7 +1174,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
               _RoundButton(
                 icon: Icons.close,
                 color: C.terracotta,
-                onTap: () => _animateOut(-1, _skip),
+                onTap: () => _animateOut(-1, () => _skip(cards[idx])),
               ),
               const SizedBox(width: 24),
               _RoundButton(
@@ -1434,7 +1527,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                       const SizedBox(width: 14),
                                       Expanded(
                                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                          Text(c.nickname ?? 'Nowa osoba', style: serif(18, w: FontWeight.w500)),
+                                          Text(c.nickname ?? 'Nieznana osoba', style: serif(18, w: FontWeight.w500)),
                                           if (c.lastText != null)
                                             Padding(
                                               padding: const EdgeInsets.only(top: 4),
