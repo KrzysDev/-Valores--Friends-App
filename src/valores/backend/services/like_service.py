@@ -1,7 +1,7 @@
 from uuid import UUID
 from typing import List, Dict, Any, Optional
 
-from supabase import Client
+from supabase import AsyncClient
 
 from ..models.schemas import LikeResponse, MatchResponse
 
@@ -9,7 +9,7 @@ from ..models.schemas import LikeResponse, MatchResponse
 class LikeService:
     """Service for managing likes and match detection."""
 
-    def __init__(self, client: Client) -> None:
+    def __init__(self, client: AsyncClient) -> None:
         self._client = client
 
     async def like_user(self, liker_id: UUID, liked_id: UUID) -> LikeResponse:
@@ -20,7 +20,7 @@ class LikeService:
         if liker_id == liked_id:
             raise ValueError("Cannot like yourself")
 
-        result = self._client.rpc(
+        result = await self._client.rpc(
             "create_like_and_check_match",
             {"p_liker_id": str(liker_id), "p_liked_id": str(liked_id)}
         ).execute()
@@ -36,15 +36,19 @@ class LikeService:
 
     async def unlike_user(self, liker_id: UUID, liked_id: UUID) -> bool:
         """Remove a like (unlike)."""
-        result = self._client.table("likes").delete().eq(
-            "liker_id", str(liker_id)
-        ).eq("liked_id", str(liked_id)).execute()
+        await (
+            self._client.table("likes")
+            .delete()
+            .eq("liker_id", str(liker_id))
+            .eq("liked_id", str(liked_id))
+            .execute()
+        )
 
         return True
 
     async def get_user_matches(self, user_id: UUID) -> List[MatchResponse]:
         """Get all matches (conversations) for a user."""
-        result = self._client.rpc(
+        result = await self._client.rpc(
             "get_user_matches",
             {"p_user_id": str(user_id)}
         ).execute()
@@ -61,24 +65,34 @@ class LikeService:
 
     async def has_liked(self, liker_id: UUID, liked_id: UUID) -> bool:
         """Check if user has already liked another user."""
-        result = self._client.table("likes").select("id").eq(
-            "liker_id", str(liker_id)
-        ).eq("liked_id", str(liked_id)).execute()
+        result = await (
+            self._client.table("likes")
+            .select("id")
+            .eq("liker_id", str(liker_id))
+            .eq("liked_id", str(liked_id))
+            .execute()
+        )
 
         return bool(result.data)
 
     async def get_likes_received(self, user_id: UUID) -> List[Dict[str, Any]]:
         """Get all likes received by a user."""
-        result = self._client.table("likes").select(
-            "id, liker_id, created_at"
-        ).eq("liked_id", str(user_id)).execute()
+        result = await (
+            self._client.table("likes")
+            .select("id, liker_id, created_at")
+            .eq("liked_id", str(user_id))
+            .execute()
+        )
 
         return result.data if result.data else []
 
     async def get_likes_given(self, user_id: UUID) -> List[Dict[str, Any]]:
         """Get all likes given by a user."""
-        result = self._client.table("likes").select(
-            "id, liked_id, created_at"
-        ).eq("liker_id", str(user_id)).execute()
+        result = await (
+            self._client.table("likes")
+            .select("id, liked_id, created_at")
+            .eq("liker_id", str(user_id))
+            .execute()
+        )
 
         return result.data if result.data else []

@@ -23,7 +23,6 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
-    name: str = Field(..., min_length=1, max_length=50)
     age: int = Field(..., ge=13, le=100)
 
 

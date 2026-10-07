@@ -24,7 +24,7 @@ async def login(request: LoginRequest, service: AuthService = Depends(AuthServic
     We forward those fields (including the access token) to the caller.
     """
     try:
-        resp = service.login(request.email, request.password)
+        resp = await service.login(request.email, request.password)
         return {
             "user": resp.user,
             "access_token": getattr(resp.session, "access_token", None),
@@ -42,7 +42,7 @@ async def register(request: RegisterRequest, service: AuthService = Depends(Auth
     ``user_metadata`` column of Supabase.
     """
     try:
-        resp = service.register(request.email, request.password, request.age, request.name)
+        resp = await service.register(request.email, request.password, request.age)
         return {
             "user": resp.user,
             "access_token": getattr(resp.session, "access_token", None),
@@ -58,7 +58,7 @@ async def delete_account(access_token: str, service: AuthService = Depends(AuthS
     The caller must provide a valid Bearer token in the Authorization header.
     """
     try:
-        service.delete_account(access_token)
+        await service.delete_account(access_token)
         return {"detail": "account deleted"}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -71,7 +71,7 @@ async def logout(credentials: HTTPAuthorizationCredentials = Depends(security), 
     Requires a Bearer token in the Authorization header.
     """
     try:
-        service.logout(credentials.credentials)
+        await service.logout(credentials.credentials)
         return {"detail": "logged out"}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

@@ -9,13 +9,14 @@ from ...services.like_service import LikeService
 router = APIRouter(prefix="/likes", tags=["likes"])
 
 
-def get_user_id_from_token(
+async def get_user_id_from_token(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> UUID:
     """Extract user_id from the access token passed as query parameter."""
     try:
-        response = auth_service._client().auth.get_user(access_token)
+        client = await auth_service._client()
+        response = await client.auth.get_user(access_token)
         if response is None or response.user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return UUID(response.user.id)
@@ -23,12 +24,12 @@ def get_user_id_from_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
 
 
-def get_like_service(
+async def get_like_service(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> LikeService:
     """Create a LikeService with the user's authenticated client."""
-    return LikeService(auth_service._client())
+    return LikeService(await auth_service._client())
 
 
 @router.post("", response_model=LikeResponse, status_code=status.HTTP_200_OK)

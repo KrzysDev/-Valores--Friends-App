@@ -8,13 +8,14 @@ from ...services.board_service import BoardService
 router = APIRouter(prefix="/boards", tags=["boards"])
 
 
-def get_user_id_from_token(
+async def get_user_id_from_token(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> UUID:
     """Extract user_id from the access token passed as query parameter."""
     try:
-        response = auth_service._client().auth.get_user(access_token)
+        client = await auth_service._client()
+        response = await client.auth.get_user(access_token)
         if response is None or response.user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return UUID(response.user.id)
@@ -22,12 +23,12 @@ def get_user_id_from_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
 
 
-def get_board_service(
+async def get_board_service(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> BoardService:
     """Create a BoardService with the user's authenticated client."""
-    return BoardService(auth_service._client())
+    return BoardService(await auth_service._client())
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -39,7 +40,7 @@ async def create_board(
 ):
     """Create a new board for the authenticated user."""
     try:
-        result = board_service.create_board(user_id, board)
+        result = await board_service.create_board(user_id, board)
         return {"board": result}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -54,7 +55,7 @@ async def delete_board_by_id(
 ):
     """Delete a specific board by ID (must belong to the authenticated user)."""
     try:
-        board_service.delete_board_by_id(board_id, user_id)
+        await board_service.delete_board_by_id(board_id, user_id)
         return {"detail": "board deleted"}
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
