@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from uuid import UUID
+from typing import Any, Dict, Optional
 
 from ...models.schemas import Board
 from ...services.auth_service import AuthService
@@ -29,6 +30,19 @@ async def get_board_service(
 ) -> BoardService:
     """Create a BoardService with the user's authenticated client."""
     return BoardService(await auth_service._client())
+
+
+@router.get("/me", response_model=Optional[Dict[str, Any]], status_code=status.HTTP_200_OK)
+async def get_my_board(
+    access_token: str = Query(..., alias="access_token"),
+    user_id: UUID = Depends(get_user_id_from_token),
+    board_service: BoardService = Depends(get_board_service),
+):
+    """Return the authenticated user's own board (or ``null`` if none exists)."""
+    try:
+        return await board_service.get_board(user_id)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)

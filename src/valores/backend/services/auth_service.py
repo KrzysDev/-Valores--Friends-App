@@ -86,8 +86,8 @@ class AuthService:
         finally:
             await client.auth.close()
 
-    async def register(self, email: str, password: str, age: int) -> Any:
-        """Register a new user and store their age in user_profiles."""
+    async def register(self, email: str, password: str, age: int, name: str) -> Any:
+        """Register a new user and store their name and age in user_profiles."""
         # Sign-up mutates the client session, so use a throwaway client here.
         client = await acreate_client(self.url, self.key, _AUTH_ONLY_OPTIONS)
         try:
@@ -98,20 +98,20 @@ class AuthService:
         if resp.user is None:
             raise RuntimeError("Failed to create user")
 
-        # Store age in user_profiles using the shared admin client
+        # Store name and age in user_profiles using the shared admin client
         admin = await self._admin_client()
         await (
             admin.table("user_profiles")
-            .insert({"user_id": resp.user.id, "age": age})
+            .insert({"user_id": resp.user.id, "age": age, "name": name})
             .execute()
         )
 
         return resp
 
-    async def get_user_ids_by_age_range(
+    async def get_profiles_by_age_range(
         self, youngest: int, oldest: int, exclude_user_id: Optional[str] = None
-    ) -> List[str]:
-        """Get user IDs of users within the specified age range.
+    ) -> List[Dict[str, Any]]:
+        """Get user profiles (user_id, name, age) within the specified age range.
 
         Args:
             youngest: Minimum age (inclusive)
@@ -119,12 +119,12 @@ class AuthService:
             exclude_user_id: Optional user ID to exclude from results
 
         Returns:
-            List of user IDs matching the criteria
+            List of profile dicts with user_id, name and age
         """
         admin = await self._admin_client()
         query = (
             admin.table("user_profiles")
-            .select("user_id")
+            .select("user_id, name, age")
             .gte("age", youngest)
             .lte("age", oldest)
         )
@@ -134,7 +134,7 @@ class AuthService:
 
         response = await query.execute()
 
-        return [row["user_id"] for row in response.data] if response.data else []
+        return response.data if response.data else []
 
     async def logout(self, access_token: str) -> None:
         """Invalidate the session belonging to the given access token."""

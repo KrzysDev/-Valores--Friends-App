@@ -37,12 +37,11 @@ async def login(request: LoginRequest, service: AuthService = Depends(AuthServic
 async def register(request: RegisterRequest, service: AuthService = Depends(AuthService)):
     """Create a new user account.
 
-    ``age`` is required and stored in the user_profiles table for age-based filtering.
-    ``data`` can contain any additional fields that should be stored in the
-    ``user_metadata`` column of Supabase.
+    ``age`` and ``name`` are required and stored in the user_profiles table
+    (age for filtering, name for display).
     """
     try:
-        resp = await service.register(request.email, request.password, request.age)
+        resp = await service.register(request.email, request.password, request.age, request.name)
         return {
             "user": resp.user,
             "access_token": getattr(resp.session, "access_token", None),

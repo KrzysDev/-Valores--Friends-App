@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from ...models.schemas import Board
 from ...services.auth_service import AuthService
 from ...services.board_service import BoardService
+from ...services.swipe_service import SwipeService
 
 router = APIRouter(prefix="/discover", tags=["discover"])
 
@@ -31,6 +32,13 @@ async def get_admin_board_service(
     return BoardService(await auth_service._admin_client())
 
 
+async def get_admin_swipe_service(
+    auth_service: AuthService = Depends(AuthService),
+) -> SwipeService:
+    """Create a SwipeService with the admin client (bypasses RLS for discovery)."""
+    return SwipeService(await auth_service._admin_client())
+
+
 @router.get("/boards", response_model=List[Dict[str, Any]])
 async def discover_boards(
     youngest: int = Query(..., ge=13, le=100, description="Minimum age (inclusive)"),
@@ -38,13 +46,14 @@ async def discover_boards(
     access_token: str = Query(..., alias="access_token"),
     user_id: UUID = Depends(get_user_id_from_token),
     board_service: BoardService = Depends(get_admin_board_service),
+    swipe_service: SwipeService = Depends(get_admin_swipe_service),
     auth_service: AuthService = Depends(AuthService),
 ):
     """
     Discover boards filtered by age range.
     
     Returns boards of users whose age is between `youngest` and `oldest` (inclusive).
-    Excludes the current user's own board.
+    Excludes the current user's own board and any user already swiped.
     """
     if youngest > oldest:
         raise HTTPException(
@@ -53,14 +62,26 @@ async def discover_boards(
         )
     
     try:
-        # Get user IDs in the age range (excluding current user)
-        user_ids = await auth_service.get_user_ids_by_age_range(
+        # Get profiles in the age range (excluding current user)
+        profiles = await auth_service.get_profiles_by_age_range(
             youngest=youngest,
             oldest=oldest,
             exclude_user_id=str(user_id)
         )
+        profiles_by_id = {p["user_id"]: p for p in profiles}
+        user_ids = [p["user_id"] for p in profiles]
         
         boards = await board_service.get_boards_by_user_ids(user_ids)
+
+        # Hide people the user has already swiped (left or right)
+        swiped_ids = set(await swipe_service.get_swiped_ids(user_id))
+        boards = [b for b in boards if str(b.get("user_id")) not in swiped_ids]
+
+        # Attach the owner's name and age so the frontend can show them above the board
+        for board in boards:
+            profile = profiles_by_id.get(str(board.get("user_id")), {})
+            board["name"] = profile.get("name")
+            board["age"] = profile.get("age")
         
         return boards
     except Exception as exc:

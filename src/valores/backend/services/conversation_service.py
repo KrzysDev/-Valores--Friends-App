@@ -11,6 +11,30 @@ class ConversationService:
     def __init__(self, client: AsyncClient) -> None:
         self._client = client
 
+    async def _get_display_name(self, other_user_id: str) -> Optional[str]:
+        """Look up the other user's display name from user_profiles.
+
+        The profile stores the first name in the ``name`` column. Falls back to
+        ``nickname`` for older rows, and to ``None`` when neither is available.
+        """
+        for column in ("name", "nickname"):
+            try:
+                profile_result = await (
+                    self._client.table("user_profiles")
+                    .select(column)
+                    .eq("user_id", other_user_id)
+                    .limit(1)
+                    .execute()
+                )
+                if profile_result.data:
+                    value = profile_result.data[0].get(column)
+                    if value:
+                        return value
+            except Exception:
+                # column doesn't exist yet, try the next one
+                continue
+        return None
+
     async def get_user_conversations(self, user_id: UUID) -> List[Dict[str, Any]]:
         """
         Get all conversations for a user with last message and unread count.
@@ -50,24 +74,8 @@ class ConversationService:
             )
             unread_count = unread_result.count if unread_result.count else 0
 
-            # Get other user's nickname from user_profiles (if column exists)
-            nickname = None
-            try:
-                profile_result = await (
-                    self._client.table("user_profiles")
-                    .select("nickname")
-                    .eq("user_id", other_user_id)
-                    .single()
-                    .execute()
-                )
-                nickname = (
-                    profile_result.data.get("nickname")
-                    if profile_result.data
-                    else None
-                )
-            except Exception:
-                # nickname column doesn't exist yet, ignore
-                pass
+            # Get other user's display name from user_profiles
+            nickname = await self._get_display_name(other_user_id)
 
             return {
                 "id": conversation_id,
@@ -107,20 +115,8 @@ class ConversationService:
 
         other_user_id = conversation["id_user_2"] if conversation["id_user_1"] == str(user_id) else conversation["id_user_1"]
 
-        # Get other user's nickname (if column exists)
-        nickname = None
-        try:
-            profile_result = await (
-                self._client.table("user_profiles")
-                .select("nickname")
-                .eq("user_id", other_user_id)
-                .single()
-                .execute()
-            )
-            nickname = profile_result.data.get("nickname") if profile_result.data else None
-        except Exception:
-            # nickname column doesn't exist yet, ignore
-            pass
+        # Get other user's display name
+        nickname = await self._get_display_name(other_user_id)
 
         # Get unread count
         unread_result = await (

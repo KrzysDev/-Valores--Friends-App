@@ -24,6 +24,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=1)
     age: int = Field(..., ge=13, le=100)
+    name: str = Field(..., min_length=1, max_length=50)
 
 
 
@@ -46,6 +47,16 @@ class LikeRequest(BaseModel):
 class LikeResponse(BaseModel):
     is_match: bool
     conversation_id: Optional[UUID] = None
+
+
+class SwipeRequest(BaseModel):
+    """A single swipe on another user's board.
+
+    ``direction`` is ``'right'`` (show interest / like) or ``'left'`` (skip).
+    """
+
+    swiped_id: UUID
+    direction: str = Field(..., pattern="^(left|right)$")
 
 
 class MessageCreate(BaseModel):
