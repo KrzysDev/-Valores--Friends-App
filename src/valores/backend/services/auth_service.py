@@ -1,5 +1,5 @@
 import os
-from typing import Any, List
+from typing import Any, Dict, List
 
 from dotenv import find_dotenv, load_dotenv
 from supabase import Client, create_client
@@ -37,8 +37,8 @@ class AuthService:
             {"email": email, "password": password}
         )
 
-    def register(self, email: str, password: str, age: int) -> Any:
-        """Register a new user and store their age in user_profiles."""
+    def register(self, email: str, password: str, age: int, name: str) -> Any:
+        """Register a new user and store their name and age in user_profiles."""
         # Create the auth user
         resp = self._client().auth.sign_up({"email": email, "password": password})
         
@@ -47,17 +47,18 @@ class AuthService:
         
         user_id = resp.user.id
         
-        # Store age in user_profiles using admin client
+        # Store name and age in user_profiles using admin client
         admin = self._admin_client()
         admin.table("user_profiles").insert({
             "user_id": user_id,
-            "age": age
+            "age": age,
+            "name": name
         }).execute()
         
         return resp
 
-    def get_user_ids_by_age_range(self, youngest: int, oldest: int, exclude_user_id: str = None) -> List[str]:
-        """Get user IDs of users within the specified age range.
+    def get_profiles_by_age_range(self, youngest: int, oldest: int, exclude_user_id: str = None) -> List[Dict[str, Any]]:
+        """Get user profiles (user_id, name, age) within the specified age range.
         
         Args:
             youngest: Minimum age (inclusive)
@@ -65,19 +66,17 @@ class AuthService:
             exclude_user_id: Optional user ID to exclude from results
             
         Returns:
-            List of user IDs matching the criteria
+            List of profile dicts with user_id, name and age
         """
         admin = self._admin_client()
-        query = admin.table("user_profiles").select("user_id").gte("age", youngest).lte("age", oldest)
+        query = admin.table("user_profiles").select("user_id, name, age").gte("age", youngest).lte("age", oldest)
         
         if exclude_user_id:
             query = query.neq("user_id", exclude_user_id)
             
         response = query.execute()
 
-        print("response: ", response)
-
-        return [row["user_id"] for row in response.data] if response.data else []
+        return response.data if response.data else []
 
     def logout(self, access_token: str) -> None:
         """Invalidate the session belonging to the given access token."""

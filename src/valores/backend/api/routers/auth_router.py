@@ -42,7 +42,7 @@ async def register(request: RegisterRequest, service: AuthService = Depends(Auth
     ``user_metadata`` column of Supabase.
     """
     try:
-        resp = service.register(request.email, request.password, request.age)
+        resp = service.register(request.email, request.password, request.age, request.name)
         return {
             "user": resp.user,
             "access_token": getattr(resp.session, "access_token", None),

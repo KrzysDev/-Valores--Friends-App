@@ -167,8 +167,10 @@ class Block {
 class BoardCard {
   final String? id;
   final String userId;
+  final String? name;
+  final int? age;
   final List<Block> blocks;
-  BoardCard(this.id, this.userId, this.blocks);
+  BoardCard(this.id, this.userId, this.name, this.age, this.blocks);
   // Odpowiedź /discover/boards ma typ Dict – parsujemy tolerancyjnie.
   factory BoardCard.fromJson(Map<String, dynamic> j) {
     final inner = j['board'] is Map ? Map<String, dynamic>.from(j['board']) : j;
@@ -177,7 +179,13 @@ class BoardCard {
         ? raw.whereType<Map>().map((e) => Block.fromJson(Map<String, dynamic>.from(e))).toList()
         : <Block>[];
     final uid = (j['user_id'] ?? j['owner_id'] ?? (j['user'] is Map ? j['user']['id'] : null))?.toString() ?? '';
-    return BoardCard(j['id']?.toString(), uid, blocks);
+    return BoardCard(
+      j['id']?.toString(),
+      uid,
+      j['name']?.toString(),
+      (j['age'] as num?)?.toInt(),
+      blocks,
+    );
   }
 }
 
@@ -371,8 +379,8 @@ class Api extends ChangeNotifier {
   Future<void> login(String email, String pw) async =>
       _setSession(await _req('POST', '/auth/login', body: {'email': email, 'password': pw}, auth: false));
 
-  Future<void> register(String email, String pw, int age) async => _setSession(
-      await _req('POST', '/auth/register', body: {'email': email, 'password': pw, 'age': age}, auth: false),
+  Future<void> register(String email, String pw, int age, String name) async => _setSession(
+      await _req('POST', '/auth/register', body: {'email': email, 'password': pw, 'age': age, 'name': name}, auth: false),
       newAge: age);
 
   Future<void> logout() async {
@@ -498,7 +506,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
-  final email = TextEditingController(), pass = TextEditingController(), ageCtrl = TextEditingController();
+  final email = TextEditingController(), pass = TextEditingController(), nameCtrl = TextEditingController(), ageCtrl = TextEditingController();
   bool register = false, busy = false;
   late final AnimationController _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))..forward();
 
@@ -506,6 +514,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   void dispose() {
     email.dispose();
     pass.dispose();
+    nameCtrl.dispose();
     ageCtrl.dispose();
     _fadeCtrl.dispose();
     super.dispose();
@@ -515,9 +524,11 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     setState(() => busy = true);
     try {
       if (register) {
+        final n = nameCtrl.text.trim();
+        if (n.isEmpty) throw ApiException('Podaj swoje imię');
         final a = int.tryParse(ageCtrl.text.trim());
         if (a == null || a < 13 || a > 100) throw ApiException('Podaj wiek od 13 do 100 lat');
-        await Api.i.register(email.text.trim(), pass.text, a);
+        await Api.i.register(email.text.trim(), pass.text, a, n);
       } else {
         await Api.i.login(email.text.trim(), pass.text);
       }
@@ -569,16 +580,27 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           child: register
                               ? Padding(
                                   padding: const EdgeInsets.only(top: 12),
-                                  child: TextField(
-                                      controller: ageCtrl,
-                                      keyboardType: TextInputType.number,
-                                      textInputAction: TextInputAction.done,
-                                      onSubmitted: (_) => submit(),
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                      decoration: const InputDecoration(
-                                        hintText: 'Wiek',
-                                        prefixIcon: Icon(Icons.cake_outlined, size: 20, color: C.inkSoft),
-                                      )),
+                                  child: Column(children: [
+                                    TextField(
+                                        controller: nameCtrl,
+                                        textCapitalization: TextCapitalization.words,
+                                        textInputAction: TextInputAction.next,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Imię',
+                                          prefixIcon: Icon(Icons.person_outline, size: 20, color: C.inkSoft),
+                                        )),
+                                    const SizedBox(height: 12),
+                                    TextField(
+                                        controller: ageCtrl,
+                                        keyboardType: TextInputType.number,
+                                        textInputAction: TextInputAction.done,
+                                        onSubmitted: (_) => submit(),
+                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                        decoration: const InputDecoration(
+                                          hintText: 'Wiek',
+                                          prefixIcon: Icon(Icons.cake_outlined, size: 20, color: C.inkSoft),
+                                        )),
+                                  ]),
                                 )
                               : const SizedBox.shrink(),
                         ),
@@ -763,7 +785,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
   late AnimationController _swipeCtrl;
   late Animation<Offset> _slideAnim;
   late Animation<double> _rotateAnim;
-  Offset _dragStart = Offset.zero;
+
   Offset _dragPos = Offset.zero;
 
   @override
@@ -813,47 +835,69 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
   }
 
   void _onPanStart(DragStartDetails d) {
-    _dragStart = d.localPosition;
+    if (_swipeCtrl.isAnimating) return;
+    setState(() => _dragPos = Offset.zero);
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
+    if (_swipeCtrl.isAnimating) return;
     setState(() {
-      _dragPos = d.localPosition - _dragStart;
+      _dragPos += d.delta;
     });
   }
 
   void _onPanEnd(DragEndDetails d) {
+    if (_swipeCtrl.isAnimating) return;
     final screenW = MediaQuery.of(context).size.width;
     final threshold = screenW * 0.3;
+    final vx = d.velocity.pixelsPerSecond.dx;
+    final flick = vx.abs() > 700; // szybki fling decyduje o kierunku nawet bez przekroczenia progu
 
-    if (_dragPos.dx > threshold) {
+    if (_dragPos.dx > threshold || (flick && _dragPos.dx > 0)) {
       // swipe right → like
-      _animateOut(1, () => _like(cards[idx]));
-    } else if (_dragPos.dx < -threshold) {
+      _animateOut(1, () => _like(cards[idx]), velocity: vx);
+    } else if (_dragPos.dx < -threshold || (flick && _dragPos.dx < 0)) {
       // swipe left → skip
-      _animateOut(-1, _skip);
+      _animateOut(-1, _skip, velocity: vx);
     } else {
-      // wróć do środka
-      setState(() => _dragPos = Offset.zero);
+      // puszczono za wcześnie – karta płynnie wraca na środek
+      _animateBack();
     }
   }
 
-  void _animateOut(int direction, VoidCallback onDone) {
+  /// Animuje kartę od aktualnej pozycji do [end] wraz z rotacją [endRotation].
+  void _animateCardTo(Offset end, double endRotation,
+      {Duration duration = const Duration(milliseconds: 320), VoidCallback? onDone}) {
+    if (_swipeCtrl.isAnimating) return;
     final screenW = MediaQuery.of(context).size.width;
-    _slideAnim = Tween<Offset>(
-      begin: _dragPos,
-      end: Offset(direction * screenW * 1.5, _dragPos.dy),
-    ).animate(CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOut));
-    _rotateAnim = Tween<double>(
-      begin: _dragPos.dx / screenW * 0.3,
-      end: direction * 0.5,
-    ).animate(CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOut));
+    _slideAnim = Tween<Offset>(begin: _dragPos, end: end).animate(
+        CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOutCubic));
+    _rotateAnim = Tween<double>(begin: _dragPos.dx / screenW * 0.3, end: endRotation).animate(
+        CurvedAnimation(parent: _swipeCtrl, curve: Curves.easeOutCubic));
 
+    _swipeCtrl.duration = duration;
     _swipeCtrl.forward(from: 0).then((_) {
+      if (!mounted) return;
       _swipeCtrl.reset();
       setState(() => _dragPos = Offset.zero);
-      onDone();
+      onDone?.call();
     });
+  }
+
+  void _animateOut(int direction, VoidCallback onDone, {double velocity = 0}) {
+    final screenW = MediaQuery.of(context).size.width;
+    // Szybki fling → krótsza, bardziej dynamiczna animacja wyjścia
+    final fast = velocity.abs() > 1500;
+    _animateCardTo(
+      Offset(direction * screenW * 1.5, _dragPos.dy),
+      direction * 0.5,
+      duration: Duration(milliseconds: fast ? 220 : 340),
+      onDone: onDone,
+    );
+  }
+
+  void _animateBack() {
+    _animateCardTo(Offset.zero, 0);
   }
 
   void _skip() => setState(() => idx++);
@@ -926,17 +970,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
     } else {
       final c = cards[idx];
       final screenW = MediaQuery.of(context).size.width;
-      // Oblicz offset i rotację
-      final offset = _swipeCtrl.isAnimating ? _slideAnim.value : _dragPos;
-      final rotation = _swipeCtrl.isAnimating
-          ? _rotateAnim.value
-          : _dragPos.dx / screenW * 0.3;
-      final likeOpacity = (offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
-      final skipOpacity = (-offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
-
       body = AnimatedBuilder(
         animation: _swipeCtrl,
-        builder: (_, child) => Stack(children: [
+        builder: (_, child) {
+          // Wartości animacji muszą być odczytywane w każdej klatce.
+          final offset = _swipeCtrl.isAnimating ? _slideAnim.value : _dragPos;
+          final rotation = _swipeCtrl.isAnimating
+              ? _rotateAnim.value
+              : _dragPos.dx / screenW * 0.3;
+          final likeOpacity = (offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
+          final skipOpacity = (-offset.dx / (screenW * 0.3)).clamp(0.0, 1.0);
+
+          return Stack(clipBehavior: Clip.none, children: [
           // Wskaźniki po bokach
           if (likeOpacity > 0)
             Positioned(
@@ -982,15 +1027,36 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
               child: child,
             ),
           ),
-        ]),
+          ]);
+        },
         child: GestureDetector(
-          onPanStart: _onPanStart,
-          onPanUpdate: _onPanUpdate,
-          onPanEnd: _onPanEnd,
+          onHorizontalDragStart: _onPanStart,
+          onHorizontalDragUpdate: _onPanUpdate,
+          onHorizontalDragEnd: _onPanEnd,
+          onHorizontalDragCancel: () {
+            if (!_swipeCtrl.isAnimating) _animateBack();
+          },
           child: PaperCard(
             color: C.linen,
             padding: const EdgeInsets.all(14),
-            child: SingleChildScrollView(child: BoardTiles(c.blocks)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (c.name != null || c.age != null) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    if (c.name != null)
+                      Flexible(child: Text(c.name!, style: serif(26, w: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                    if (c.age != null) ...[
+                      const SizedBox(width: 8),
+                      Text('${c.age}', style: serif(20, italic: true, c: C.sage)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+              ],
+              Expanded(child: SingleChildScrollView(child: BoardTiles(c.blocks))),
+            ]),
           ),
         ),
       );

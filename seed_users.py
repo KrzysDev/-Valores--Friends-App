@@ -216,10 +216,11 @@ def seed(count: int = 8, clean: bool = False):
             user_id = str(user.id)
             print(f"    [+] Auth utworzony, ID: {user_id}")
 
-            # 2. Wpisz profil i wiek do user_profiles
+            # 2. Wpisz profil, wiek i imie do user_profiles
             profile_data = {
                 "user_id": user_id,
-                "age": age
+                "age": age,
+                "name": persona["name"]
             }
             # Sprawdz czy tabela obsluguje nickname
             try:
