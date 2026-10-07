@@ -220,7 +220,6 @@ __marimo__/
 
 # Miscellaneous
 *.class
-*.lock
 *.log
 *.pyc
 *.swp
