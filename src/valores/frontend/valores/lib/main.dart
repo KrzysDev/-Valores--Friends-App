@@ -167,8 +167,10 @@ class Block {
 class BoardCard {
   final String? id;
   final String userId;
+  final String? name;
+  final int? age;
   final List<Block> blocks;
-  BoardCard(this.id, this.userId, this.blocks);
+  BoardCard(this.id, this.userId, this.name, this.age, this.blocks);
   // Odpowiedź /discover/boards ma typ Dict – parsujemy tolerancyjnie.
   factory BoardCard.fromJson(Map<String, dynamic> j) {
     final inner = j['board'] is Map ? Map<String, dynamic>.from(j['board']) : j;
@@ -177,7 +179,13 @@ class BoardCard {
         ? raw.whereType<Map>().map((e) => Block.fromJson(Map<String, dynamic>.from(e))).toList()
         : <Block>[];
     final uid = (j['user_id'] ?? j['owner_id'] ?? (j['user'] is Map ? j['user']['id'] : null))?.toString() ?? '';
-    return BoardCard(j['id']?.toString(), uid, blocks);
+    return BoardCard(
+      j['id']?.toString(),
+      uid,
+      j['name']?.toString(),
+      (j['age'] as num?)?.toInt(),
+      blocks,
+    );
   }
 }
 
@@ -371,8 +379,8 @@ class Api extends ChangeNotifier {
   Future<void> login(String email, String pw) async =>
       _setSession(await _req('POST', '/auth/login', body: {'email': email, 'password': pw}, auth: false));
 
-  Future<void> register(String email, String pw, int age) async => _setSession(
-      await _req('POST', '/auth/register', body: {'email': email, 'password': pw, 'age': age}, auth: false),
+  Future<void> register(String email, String pw, int age, String name) async => _setSession(
+      await _req('POST', '/auth/register', body: {'email': email, 'password': pw, 'age': age, 'name': name}, auth: false),
       newAge: age);
 
   Future<void> logout() async {
@@ -498,7 +506,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
-  final email = TextEditingController(), pass = TextEditingController(), ageCtrl = TextEditingController();
+  final email = TextEditingController(), pass = TextEditingController(), nameCtrl = TextEditingController(), ageCtrl = TextEditingController();
   bool register = false, busy = false;
   late final AnimationController _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))..forward();
 
@@ -506,6 +514,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   void dispose() {
     email.dispose();
     pass.dispose();
+    nameCtrl.dispose();
     ageCtrl.dispose();
     _fadeCtrl.dispose();
     super.dispose();
@@ -515,9 +524,11 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     setState(() => busy = true);
     try {
       if (register) {
+        final n = nameCtrl.text.trim();
+        if (n.isEmpty) throw ApiException('Podaj swoje imię');
         final a = int.tryParse(ageCtrl.text.trim());
         if (a == null || a < 13 || a > 100) throw ApiException('Podaj wiek od 13 do 100 lat');
-        await Api.i.register(email.text.trim(), pass.text, a);
+        await Api.i.register(email.text.trim(), pass.text, a, n);
       } else {
         await Api.i.login(email.text.trim(), pass.text);
       }
@@ -569,16 +580,27 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           child: register
                               ? Padding(
                                   padding: const EdgeInsets.only(top: 12),
-                                  child: TextField(
-                                      controller: ageCtrl,
-                                      keyboardType: TextInputType.number,
-                                      textInputAction: TextInputAction.done,
-                                      onSubmitted: (_) => submit(),
-                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                      decoration: const InputDecoration(
-                                        hintText: 'Wiek',
-                                        prefixIcon: Icon(Icons.cake_outlined, size: 20, color: C.inkSoft),
-                                      )),
+                                  child: Column(children: [
+                                    TextField(
+                                        controller: nameCtrl,
+                                        textCapitalization: TextCapitalization.words,
+                                        textInputAction: TextInputAction.next,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Imię',
+                                          prefixIcon: Icon(Icons.person_outline, size: 20, color: C.inkSoft),
+                                        )),
+                                    const SizedBox(height: 12),
+                                    TextField(
+                                        controller: ageCtrl,
+                                        keyboardType: TextInputType.number,
+                                        textInputAction: TextInputAction.done,
+                                        onSubmitted: (_) => submit(),
+                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                        decoration: const InputDecoration(
+                                          hintText: 'Wiek',
+                                          prefixIcon: Icon(Icons.cake_outlined, size: 20, color: C.inkSoft),
+                                        )),
+                                  ]),
                                 )
                               : const SizedBox.shrink(),
                         ),
@@ -990,7 +1012,24 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
           child: PaperCard(
             color: C.linen,
             padding: const EdgeInsets.all(14),
-            child: SingleChildScrollView(child: BoardTiles(c.blocks)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (c.name != null || c.age != null) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    if (c.name != null)
+                      Flexible(child: Text(c.name!, style: serif(26, w: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                    if (c.age != null) ...[
+                      const SizedBox(width: 8),
+                      Text('${c.age}', style: serif(20, italic: true, c: C.sage)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 10),
+              ],
+              Expanded(child: SingleChildScrollView(child: BoardTiles(c.blocks))),
+            ]),
           ),
         ),
       );

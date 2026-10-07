@@ -52,14 +52,22 @@ async def discover_boards(
         )
     
     try:
-        # Get user IDs in the age range (excluding current user)
-        user_ids = auth_service.get_user_ids_by_age_range(
+        # Get profiles in the age range (excluding current user)
+        profiles = auth_service.get_profiles_by_age_range(
             youngest=youngest,
             oldest=oldest,
             exclude_user_id=str(user_id)
         )
+        profiles_by_id = {p["user_id"]: p for p in profiles}
+        user_ids = [p["user_id"] for p in profiles]
         
         boards = board_service.get_boards_by_user_ids(user_ids)
+        
+        # Attach the owner's name and age so the frontend can show them above the board
+        for board in boards:
+            profile = profiles_by_id.get(str(board.get("user_id")), {})
+            board["name"] = profile.get("name")
+            board["age"] = profile.get("age")
         
         return boards
     except Exception as exc:
