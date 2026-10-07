@@ -9,13 +9,14 @@ from ...services.board_service import BoardService
 router = APIRouter(prefix="/discover", tags=["discover"])
 
 
-def get_user_id_from_token(
+async def get_user_id_from_token(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> UUID:
     """Extract user_id from the access token passed as query parameter."""
     try:
-        response = auth_service._client().auth.get_user(access_token)
+        client = await auth_service._client()
+        response = await client.auth.get_user(access_token)
         if response is None or response.user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return UUID(response.user.id)
@@ -23,11 +24,11 @@ def get_user_id_from_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
 
 
-def get_admin_board_service(
+async def get_admin_board_service(
     auth_service: AuthService = Depends(AuthService),
 ) -> BoardService:
     """Create a BoardService with the admin client (bypasses RLS for discovery)."""
-    return BoardService(auth_service._admin_client())
+    return BoardService(await auth_service._admin_client())
 
 
 @router.get("/boards", response_model=List[Dict[str, Any]])
@@ -53,13 +54,13 @@ async def discover_boards(
     
     try:
         # Get user IDs in the age range (excluding current user)
-        user_ids = auth_service.get_user_ids_by_age_range(
+        user_ids = await auth_service.get_user_ids_by_age_range(
             youngest=youngest,
             oldest=oldest,
             exclude_user_id=str(user_id)
         )
         
-        boards = board_service.get_boards_by_user_ids(user_ids)
+        boards = await board_service.get_boards_by_user_ids(user_ids)
         
         return boards
     except Exception as exc:

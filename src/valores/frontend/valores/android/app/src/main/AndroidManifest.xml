@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app talks to the Valores backend over the network (auth, boards,
+         discovery, chat). This permission is required in every build type, not
+         only in debug. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="valores"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

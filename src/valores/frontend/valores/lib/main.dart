@@ -19,7 +19,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ──────────────────────────────────────────────────────────────────
 //  ADRES BACKENDU – zmień na adres produkcyjny gdy wdrażasz
 // ──────────────────────────────────────────────────────────────────
-const String kBaseUrl = 'http://127.0.0.1:8000'; // <── ZMIEŃ TUTAJ
+// Adres backendu. Domyślnie emulator Androida (10.0.2.2 wskazuje na hosta).
+// Nadpisz przy uruchomieniu, np.:
+//   flutter run --dart-define=BASE_URL=http://192.168.1.10:8000
+//   flutter run --dart-define=BASE_URL=http://127.0.0.1:8000   (desktop/web)
+const String kBaseUrl = String.fromEnvironment(
+  'BASE_URL',
+  defaultValue: 'http://192.168.1.168:8000',
+);
+
+/// Maksymalny czas oczekiwania na odpowiedź backendu. Bez tego żądanie do
+/// nieosiągalnego hosta (zły adres, zablokowany cleartext, serwer wyłączony)
+/// potrafi wisieć bardzo długo i ekran wygląda jakby się nie ładował.
+const Duration kHttpTimeout = Duration(seconds: 15);
 
 // ───────────────────────────── DESIGN ─────────────────────────────
 
@@ -274,14 +286,23 @@ class Api extends ChangeNotifier {
   int? age;
   List<Block> myBlocks = [];
   Set<String> liked = {};
+  bool ready = false;
 
   String _k(String s) => '$userId:$s';
 
   Future<void> load() async {
-    _p = await SharedPreferences.getInstance();
-    token = _p.getString('token');
-    userId = _p.getString('userId');
-    if (token != null && userId != null) _loadUser();
+    try {
+      _p = await SharedPreferences.getInstance();
+      token = _p.getString('token');
+      userId = _p.getString('userId');
+      if (token != null && userId != null) _loadUser();
+    } catch (_) {
+      // Brak dostępu do pamięci – startujemy jako niezalogowany zamiast
+      // blokować uruchomienie aplikacji.
+    } finally {
+      ready = true;
+      notifyListeners();
+    }
   }
 
   void _loadUser() {
@@ -325,16 +346,16 @@ class Api extends ChangeNotifier {
     final http.Response r;
     switch (method) {
       case 'POST':
-        r = await http.post(uri, headers: headers, body: enc);
+        r = await http.post(uri, headers: headers, body: enc).timeout(kHttpTimeout);
         break;
       case 'PATCH':
-        r = await http.patch(uri, headers: headers, body: enc);
+        r = await http.patch(uri, headers: headers, body: enc).timeout(kHttpTimeout);
         break;
       case 'DELETE':
-        r = await http.delete(uri, headers: headers);
+        r = await http.delete(uri, headers: headers).timeout(kHttpTimeout);
         break;
       default:
-        r = await http.get(uri, headers: headers);
+        r = await http.get(uri, headers: headers).timeout(kHttpTimeout);
     }
     final text = utf8.decode(r.bodyBytes);
     dynamic data;
@@ -469,14 +490,29 @@ class Api extends ChangeNotifier {
 
 // ───────────────────────────── START ─────────────────────────────
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Api.i.load();
+  // Czcionki są dołączone jako assety (assets/fonts), więc nie pobieramy
+  // ich z sieci – start nie zależy od internetu.
+  GoogleFonts.config.allowRuntimeFetching = false;
   runApp(const ValoresApp());
 }
 
-class ValoresApp extends StatelessWidget {
+class ValoresApp extends StatefulWidget {
   const ValoresApp({super.key});
+  @override
+  State<ValoresApp> createState() => _ValoresAppState();
+}
+
+class _ValoresAppState extends State<ValoresApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Wczytujemy zapisaną sesję w tle, żeby pierwsza klatka mogła się
+    // wyrenderować od razu, bez czekania na shared_preferences.
+    Api.i.load();
+  }
+
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Valores',
@@ -484,7 +520,14 @@ class ValoresApp extends StatelessWidget {
         theme: buildTheme(),
         home: ListenableBuilder(
           listenable: Api.i,
-          builder: (_, _) => Api.i.token == null ? const AuthScreen() : const HomeShell(),
+          builder: (_, _) {
+            if (!Api.i.ready) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return Api.i.token == null ? const AuthScreen() : const HomeShell();
+          },
         ),
       );
 }
@@ -616,6 +659,21 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int tab = 0, chatsRev = 0;
 
+  // Budujemy zakładkę dopiero przy pierwszym wejściu do niej, żeby start nie
+  // odpalał od razu zapytań z wszystkich trzech ekranów.
+  final Set<int> _visited = {0};
+
+  Widget _tab(int n) {
+    switch (n) {
+      case 0:
+        return const DiscoverScreen();
+      case 1:
+        return ChatsScreen(key: ValueKey('chats$chatsRev'));
+      default:
+        return const BoardScreen();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const items = [
@@ -628,9 +686,8 @@ class _HomeShellState extends State<HomeShell> {
         SafeArea(
           bottom: false,
           child: IndexedStack(index: tab, children: [
-            const DiscoverScreen(),
-            ChatsScreen(key: ValueKey('chats$chatsRev')),
-            const BoardScreen(),
+            for (var n = 0; n < 3; n++)
+              _visited.contains(n) ? _tab(n) : const SizedBox.shrink(),
           ]),
         ),
         // ── pływający dock (bottom bar) ──
@@ -658,6 +715,7 @@ class _HomeShellState extends State<HomeShell> {
                         GestureDetector(
                           onTap: () => setState(() {
                             tab = n;
+                            _visited.add(n);
                             if (n == 1) chatsRev++;
                           }),
                           child: AnimatedContainer(

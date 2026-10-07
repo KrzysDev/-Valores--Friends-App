@@ -8,13 +8,14 @@ from ...services.conversation_service import ConversationService
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
-def get_user_id_from_token(
+async def get_user_id_from_token(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> UUID:
     """Extract user_id from the access token passed as query parameter."""
     try:
-        response = auth_service._client().auth.get_user(access_token)
+        client = await auth_service._client()
+        response = await client.auth.get_user(access_token)
         if response is None or response.user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return UUID(response.user.id)
@@ -22,12 +23,12 @@ def get_user_id_from_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
 
 
-def get_conversation_service(
+async def get_conversation_service(
     access_token: str = Query(..., alias="access_token"),
     auth_service: AuthService = Depends(AuthService),
 ) -> ConversationService:
     """Create a ConversationService with the user's authenticated client."""
-    return ConversationService(auth_service._client())
+    return ConversationService(await auth_service._client())
 
 
 @router.get("", response_model=List[Dict[str, Any]], status_code=status.HTTP_200_OK)

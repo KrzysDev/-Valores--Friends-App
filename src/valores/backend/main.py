@@ -1,7 +1,19 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from .services.auth_service import close_clients
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    # Release the pooled Supabase HTTP connections on shutdown.
+    await close_clients()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,8 +38,7 @@ app.include_router(conversation_router)
 app.include_router(message_router)
 
 @app.get("/")
-def root():
+async def root():
     return {
         "i will add something later here" : "fr tho"
     }
-

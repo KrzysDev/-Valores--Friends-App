@@ -60,6 +60,12 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Bundled font files used by google_fonts. They are loaded from these assets
+  # instead of being downloaded at runtime (see allowRuntimeFetching in
+  # lib/main.dart), which keeps app startup fast and offline-friendly.
+  assets:
+    - assets/fonts/
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
