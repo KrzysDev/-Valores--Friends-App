@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 
-const String kBaseUrl = 'http://192.168.1.168:8000'; 
+const String kBaseUrl = 'https://valores-friends-app.onrender.com'; 
 
 class C {
   static const canvas      = Color(0xFFFAF7F2);
@@ -137,7 +137,7 @@ void toast(BuildContext c, String m) => ScaffoldMessenger.of(c)
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))));
 
-String err(Object e) => e is ApiException ? e.message : 'Brak połączenia z serwerem';
+String err(Object e) => e is ApiException ? e.message : 'No connection to the server';
 
 
 class Block {
@@ -212,18 +212,18 @@ class BlockSuggestion {
 }
 
 const kBlockSuggestions = <BlockSuggestion>[
-  BlockSuggestion('Wartości',      Icons.favorite_border,   C.terracotta, C.clayTint,     'Co jest dla Ciebie najważniejsze w życiu?'),
-  BlockSuggestion('Hobby',         Icons.palette_outlined,  C.amber,      C.amberTint,    'Czym zajmujesz się w wolnym czasie?'),
-  BlockSuggestion('Muzyka',        Icons.music_note_outlined, C.lavender, C.lavenderTint, 'Jakie gatunki / zespoły słuchasz?'),
-  BlockSuggestion('Książki',       Icons.auto_stories_outlined, C.sage,   C.sageTint,     'Ostatnia książka, która zrobiła na Tobie wrażenie?'),
-  BlockSuggestion('Filmy & Seriale', Icons.movie_outlined,  C.sky,        C.skyTint,      'Ulubione filmy, seriale, anime?'),
-  BlockSuggestion('Przekonania',   Icons.lightbulb_outline, C.amber,      C.amberTint,    'W co wierzysz? Co Cię napędza?'),
-  BlockSuggestion('Cele życiowe',  Icons.flag_outlined,     C.sage,       C.sageTint,     'Dokąd zmierzasz? O czym marzysz?'),
-  BlockSuggestion('Motto',         Icons.format_quote,      C.rose,       C.roseTint,     'Cytat lub myśl, która Cię definiuje'),
-  BlockSuggestion('Wolny czas',    Icons.wb_sunny_outlined, C.clay,       C.clayTint,     'Jak wygląda Twój idealny dzień?'),
-  BlockSuggestion('Jak się czuję', Icons.emoji_emotions_outlined, C.lavender, C.lavenderTint, 'Nastrój, energia – co czujesz teraz?'),
-  BlockSuggestion('Podróże',       Icons.flight_outlined,   C.sky,        C.skyTint,      'Ulubione miejsca, marzenia podróżnicze?'),
-  BlockSuggestion('Jedzenie',      Icons.restaurant_outlined, C.rose,     C.roseTint,     'Ulubione kuchnie, dania, smaki?'),
+  BlockSuggestion('Values',      Icons.favorite_border,   C.terracotta, C.clayTint,     'What matters most to you in life?'),
+  BlockSuggestion('Hobby',         Icons.palette_outlined,  C.amber,      C.amberTint,    'What do you do in your free time?'),
+  BlockSuggestion('Music',        Icons.music_note_outlined, C.lavender, C.lavenderTint, 'What genres / bands do you listen to?'),
+  BlockSuggestion('Books',       Icons.auto_stories_outlined, C.sage,   C.sageTint,     'The last book that impressed you?'),
+  BlockSuggestion('Films & Series', Icons.movie_outlined,  C.sky,        C.skyTint,      'Favourite films, series, anime?'),
+  BlockSuggestion('Beliefs',   Icons.lightbulb_outline, C.amber,      C.amberTint,    'What do you believe in? What drives you?'),
+  BlockSuggestion('Life goals',  Icons.flag_outlined,     C.sage,       C.sageTint,     'Where are you headed? What do you dream of?'),
+  BlockSuggestion('Motto',         Icons.format_quote,      C.rose,       C.roseTint,     'A quote or thought that defines you'),
+  BlockSuggestion('Free time',    Icons.wb_sunny_outlined, C.clay,       C.clayTint,     'What does your perfect day look like?'),
+  BlockSuggestion('How I feel', Icons.emoji_emotions_outlined, C.lavender, C.lavenderTint, 'Mood, energy – how do you feel right now?'),
+  BlockSuggestion('Travel',       Icons.flight_outlined,   C.sky,        C.skyTint,      'Favourite places, travel dreams?'),
+  BlockSuggestion('Food',      Icons.restaurant_outlined, C.rose,     C.roseTint,     'Favourite cuisines, dishes, flavours?'),
 ];
 
 (Color, Color, IconData) blockStyle(String name) {
@@ -334,7 +334,7 @@ class Api extends ChangeNotifier {
     }
     if (r.statusCode >= 400) {
       if (r.statusCode == 401 && auth) await _dropSession();
-      var msg = 'Błąd ${r.statusCode}';
+      var msg = 'Error ${r.statusCode}';
       if (data is Map && data['detail'] != null) {
         msg = data['detail'] is String ? data['detail'] : jsonEncode(data['detail']);
       }
@@ -346,7 +346,7 @@ class Api extends ChangeNotifier {
   // ── auth
   Future<void> _setSession(dynamic d, {int? newAge}) async {
     final t = d['access_token'];
-    if (t == null) throw ApiException('Konto utworzone – potwierdź adres e-mail i zaloguj się.');
+    if (t == null) throw ApiException('Account created – confirm your email address and log in.');
     token = t;
     userId = d['user']['id'].toString();
     await _p.setString('token', token!);
@@ -387,7 +387,7 @@ class Api extends ChangeNotifier {
     return b is Map ? b['id']?.toString() : null;
   }
 
-  /// Backend nie ma PUT/GET własnej tablicy – "edycja" = usuń starą + utwórz nową.
+  /// The backend has no PUT/GET for your own board – "editing" = delete the old one + create a new one.
   Future<void> saveBoard(List<Block> blocks) async {
     if (boardId != null) {
       try {
@@ -400,7 +400,7 @@ class Api extends ChangeNotifier {
     await _saveUser();
   }
 
-  /// Wczytuje własną tablicę z bazy (np. po reinstalacji lub na innym urządzeniu).
+  /// Loads your own board from the database (e.g. after reinstall or on another device).
   Future<void> fetchMyBoard() async {
     try {
       final d = await _req('GET', '/boards/me');
@@ -447,8 +447,8 @@ class Api extends ChangeNotifier {
     }
   }
 
-  /// Zapisuje swipe (lewo = pomiń, prawo = zainteresowanie) w bazie.
-  /// Prawo dodatkowo tworzy polubienie i sprawdza dopasowanie.
+  /// Saves a swipe (left = skip, right = interested) in the database.
+  /// A right swipe also creates a like and checks for a match.
   Future<Map<String, dynamic>> swipe(String id, String direction) async {
     final d = await _req('POST', '/swipes', body: {'swiped_id': id, 'direction': direction});
     if (direction == 'right') {
@@ -488,7 +488,7 @@ class Api extends ChangeNotifier {
   Future<int> unreadCount(String id) async =>
       ((await _req('GET', '/conversations/$id/messages/unread-count'))['unread_count'] as num).toInt();
 
-  /// Łączna liczba nieprzeczytanych wiadomości (do badge'a i powiadomień).
+  /// Total number of unread messages (for the badge and notifications).
   Future<int> totalUnread() async =>
       ((await _req('GET', '/conversations/unread-count'))['unread_count'] as num).toInt();
 }
@@ -543,9 +543,9 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     try {
       if (register) {
         final n = nameCtrl.text.trim();
-        if (n.isEmpty) throw ApiException('Podaj swoje imię');
+        if (n.isEmpty) throw ApiException('Enter your name');
         final a = int.tryParse(ageCtrl.text.trim());
-        if (a == null || a < 13 || a > 100) throw ApiException('Podaj wiek od 13 do 100 lat');
+        if (a == null || a < 13 || a > 100) throw ApiException('Enter an age between 13 and 100');
         await Api.i.register(email.text.trim(), pass.text, a, n);
       } else {
         await Api.i.login(email.text.trim(), pass.text);
@@ -568,9 +568,9 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Valores', style: serif(44)),
+                    Image.asset('assets/logo.png', height: 150, alignment: Alignment.centerLeft),
                     const SizedBox(height: 8),
-                    Text('Poznaj człowieka, zanim zobaczysz twarz.', style: serif(18, italic: true, c: C.sage)),
+                    Text('Get to know the person before you see the face.', style: serif(18, italic: true, c: C.sage)),
                     const SizedBox(height: 32),
                     PaperCard(
                       child: Column(children: [
@@ -589,7 +589,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             textInputAction: register ? TextInputAction.next : TextInputAction.done,
                             onSubmitted: register ? null : (_) => submit(),
                             decoration: const InputDecoration(
-                              hintText: 'Hasło',
+                              hintText: 'Password',
                               prefixIcon: Icon(Icons.lock_outline, size: 20, color: C.inkSoft),
                             )),
                         AnimatedSize(
@@ -604,7 +604,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                         textCapitalization: TextCapitalization.words,
                                         textInputAction: TextInputAction.next,
                                         decoration: const InputDecoration(
-                                          hintText: 'Imię',
+                                          hintText: 'Name',
                                           prefixIcon: Icon(Icons.person_outline, size: 20, color: C.inkSoft),
                                         )),
                                     const SizedBox(height: 12),
@@ -615,7 +615,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                         onSubmitted: (_) => submit(),
                                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                         decoration: const InputDecoration(
-                                          hintText: 'Wiek',
+                                          hintText: 'Age',
                                           prefixIcon: Icon(Icons.cake_outlined, size: 20, color: C.inkSoft),
                                         )),
                                   ]),
@@ -625,14 +625,14 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                         const SizedBox(height: 20),
                         SizedBox(
                             width: double.infinity,
-                            child: Pill(register ? 'Utwórz konto' : 'Zaloguj się', onTap: submit, busy: busy)),
+                            child: Pill(register ? 'Create account' : 'Log in', onTap: submit, busy: busy)),
                       ]),
                     ),
                     const SizedBox(height: 12),
                     Center(
                       child: TextButton(
                         onPressed: () => setState(() => register = !register),
-                        child: Text(register ? 'Mam już konto' : 'Nie mam konta – zarejestruj się',
+                        child: Text(register ? 'I already have an account' : "I don't have an account – sign up",
                             style: const TextStyle(color: C.terracotta)),
                       ),
                     ),
@@ -676,7 +676,7 @@ class _HomeShellState extends State<HomeShell> {
       final n = await Api.i.totalUnread();
       if (!mounted) return;
       if (!_firstPoll && n > unread) {
-        toast(context, 'Nowa wiadomość 💬');
+        toast(context, 'New message 💬');
       }
       _firstPoll = false;
       if (n != unread) setState(() => unread = n);
@@ -686,9 +686,9 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     const items = [
-      (Icons.explore_outlined, 'Odkrywaj'),
-      (Icons.chat_bubble_outline, 'Rozmowy'),
-      (Icons.dashboard_outlined, 'Tablica'),
+      (Icons.explore_outlined, 'Discover'),
+      (Icons.chat_bubble_outline, 'Chats'),
+      (Icons.dashboard_outlined, 'Board'),
     ];
     return Scaffold(
       body: Stack(children: [
@@ -984,15 +984,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
         title: Row(children: [
           const Icon(Icons.celebration, color: C.amber, size: 28),
           const SizedBox(width: 8),
-          Text('Macie dopasowanie!', style: serif(24)),
+          Text("It's a match!", style: serif(24)),
         ]),
-        content: Text('Oboje zainteresowaliście się swoimi tablicami.\nMożecie zacząć rozmowę!',
+        content: Text("You both showed interest in each other's boards.\nYou can start chatting!",
             style: serif(16, italic: true)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Później', style: TextStyle(color: C.inkSoft))),
-          Pill('Napisz', onTap: () => Navigator.pop(ctx, true)),
+              child: const Text('Later', style: TextStyle(color: C.inkSoft))),
+          Pill('Write', onTap: () => Navigator.pop(ctx, true)),
         ],
       ),
     ).then((go) {
@@ -1014,18 +1014,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
         const SizedBox(height: 12),
         Text(error!, textAlign: TextAlign.center),
         const SizedBox(height: 16),
-        Pill('Spróbuj ponownie', onTap: _load),
+        Pill('Try again', onTap: _load),
       ]));
     } else if (idx >= cards.length) {
       body = Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.explore_off_outlined, size: 48, color: C.inkSoft),
         const SizedBox(height: 12),
-        Text('To na dziś wszystko.', style: serif(24, italic: true)),
+        Text("That's all for today.", style: serif(24, italic: true)),
         const SizedBox(height: 6),
-        Text('Wróć później po nowe tablice', style: serif(14, c: C.inkSoft)),
+        Text('Come back later for new boards', style: serif(14, c: C.inkSoft)),
         const SizedBox(height: 20),
-        Pill('Odśwież', ghost: true, onTap: _load),
+        Pill('Refresh', ghost: true, onTap: _load),
       ]));
     } else {
       final c = cards[idx];
@@ -1055,7 +1055,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: C.sage, width: 2),
                   ),
-                  child: Text('+  Zainteresuj się',
+                  child: Text('+  Interested',
                       style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
                 ),
               ),
@@ -1073,12 +1073,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: C.terracotta, width: 2),
                   ),
-                  child: Text('Pomiń',
+                  child: Text('Skip',
                       style: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
                 ),
               ),
             ),
-          // Karta
+          // Card
           Transform.translate(
             offset: offset,
             child: Transform.rotate(
@@ -1126,7 +1126,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> with TickerProviderStat
       child: Column(children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: Header('Odkrywaj', 'tablice zamiast zdjęć',
+          child: Header('Discover', 'boards instead of photos',
               trailing: IconButton(
                 icon: const Icon(Icons.settings_outlined, color: C.inkSoft),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
@@ -1197,7 +1197,7 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: C.canvas,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text('Ustawienia', style: serif(24)),
+        title: Text('Settings', style: serif(24)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: C.ink),
           onPressed: () => Navigator.pop(context),
@@ -1223,9 +1223,9 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Twoje konto', style: serif(20, w: FontWeight.w500)),
+                    Text('Your account', style: serif(20, w: FontWeight.w500)),
                     if (Api.i.age != null)
-                      Text('Wiek: ${Api.i.age} lat', style: const TextStyle(color: C.inkSoft, fontSize: 13)),
+                      Text('Age: ${Api.i.age}', style: const TextStyle(color: C.inkSoft, fontSize: 13)),
                   ]),
                 ),
               ]),
@@ -1241,7 +1241,7 @@ class SettingsScreen extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Serwer', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: C.inkSoft)),
+                  Text('Server', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600, color: C.inkSoft)),
                   const SizedBox(height: 2),
                   Text(kBaseUrl, style: GoogleFonts.firaCode(fontSize: 12, color: C.ink)),
                 ]),
@@ -1252,20 +1252,20 @@ class SettingsScreen extends StatelessWidget {
           _SettingsTile(
             icon: Icons.logout,
             iconColor: C.ink,
-            title: 'Wyloguj się',
-            subtitle: 'Możesz wrócić w każdej chwili',
+            title: 'Log out',
+            subtitle: 'You can come back anytime',
             onTap: () async {
               final ok = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: C.canvas,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  title: Text('Wylogować?', style: serif(24)),
-                  content: const Text('Czy na pewno chcesz się wylogować?'),
+                  title: Text('Log out?', style: serif(24)),
+                  content: const Text('Are you sure you want to log out?'),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(ctx, false), child: const Text('Anuluj')),
-                    Pill('Wyloguj', onTap: () => Navigator.pop(ctx, true)),
+                        onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    Pill('Log out', onTap: () => Navigator.pop(ctx, true)),
                   ],
                 ),
               );
@@ -1279,18 +1279,18 @@ class SettingsScreen extends StatelessWidget {
           _SettingsTile(
             icon: Icons.delete_outline,
             iconColor: C.terracotta,
-            title: 'Usuń konto',
+            title: 'Delete account',
             titleColor: C.terracotta,
-            subtitle: 'Konto i dane zostaną usunięte bezpowrotnie',
+            subtitle: 'Your account and data will be permanently deleted',
             onTap: () async {
               final ok = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: C.canvas,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  title: Text('Usunąć konto?', style: serif(24)),
+                  title: Text('Delete account?', style: serif(24)),
                   content: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Text('Konto i wszystkie dane zostaną usunięte bezpowrotnie. Tej operacji nie można cofnąć.'),
+                    const Text('Your account and all data will be permanently deleted. This action cannot be undone.'),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -1301,18 +1301,18 @@ class SettingsScreen extends StatelessWidget {
                       child: Row(children: [
                         const Icon(Icons.warning_amber, color: C.rose, size: 20),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('Utracisz tablicę, rozmowy i dopasowania.',
+                        Expanded(child: Text('You will lose your board, chats and matches.',
                             style: TextStyle(fontSize: 13, color: C.rose))),
                       ]),
                     ),
                   ]),
                   actions: [
                     TextButton(
-                        onPressed: () => Navigator.pop(ctx, false), child: const Text('Anuluj')),
+                        onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                     FilledButton(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: FilledButton.styleFrom(backgroundColor: C.terracotta, shape: const StadiumBorder()),
-                      child: const Text('Usuń konto', style: TextStyle(color: Colors.white)),
+                      child: const Text('Delete account', style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
@@ -1423,7 +1423,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   @override
   Widget build(BuildContext context) => Column(children: [
-        const Align(alignment: Alignment.centerLeft, child: Header('Rozmowy', 'ludzie, którzy też Cię wybrali')),
+        const Align(alignment: Alignment.centerLeft, child: Header('Chats', 'people who chose you too')),
         Expanded(
           child: loading
               ? const Center(child: CircularProgressIndicator(color: C.terracotta))
@@ -1444,9 +1444,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                                     const Icon(Icons.chat_bubble_outline, size: 48, color: C.inkSoft),
                                     const SizedBox(height: 12),
-                                    Text('Nic tu jeszcze nie ma.', style: serif(20, italic: true)),
+                                    Text('Nothing here yet.', style: serif(20, italic: true)),
                                     const SizedBox(height: 6),
-                                    Text('Przeglądaj tablice i szukaj dopasowań!',
+                                    Text('Browse boards and look for matches!',
                                         style: serif(14, c: C.inkSoft)),
                                   ])))
                             ])
@@ -1467,7 +1467,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                   child: PaperCard(
                                     padding: const EdgeInsets.all(16),
                                     child: Row(children: [
-                                      // Awatar z inicjałem
+                                      // Avatar with initial
                                       Container(
                                         width: 44,
                                         height: 44,
@@ -1486,7 +1486,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                       const SizedBox(width: 14),
                                       Expanded(
                                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                          Text(c.nickname ?? 'Nieznana osoba', style: serif(18, w: FontWeight.w500)),
+                                          Text(c.nickname ?? 'Unknown person', style: serif(18, w: FontWeight.w500)),
                                           if (c.lastText != null)
                                             Padding(
                                               padding: const EdgeInsets.only(top: 4),
@@ -1529,7 +1529,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool loading = true;
   final ctrl = TextEditingController();
   Timer? timer;
-  late String title = widget.title ?? 'Rozmowa';
+  late String title = widget.title ?? 'Chat';
 
   @override
   void initState() {
@@ -1616,7 +1616,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                       const Icon(Icons.waving_hand, size: 40, color: C.amber),
                       const SizedBox(height: 12),
-                      Text('Przywitaj się ✦', style: serif(20, italic: true)),
+                      Text('Say hi ✦', style: serif(20, italic: true)),
                     ]))
                   : ListView.builder(
                       reverse: true,
@@ -1683,7 +1683,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   maxLength: 5000,
                   buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
                   decoration: InputDecoration(
-                    hintText: 'Napisz wiadomość…',
+                    hintText: 'Write a message…',
                     filled: true,
                     fillColor: C.linen,
                     border: OutlineInputBorder(
@@ -1739,13 +1739,13 @@ class _BoardScreenState extends State<BoardScreen> {
   }
 
   Future<void> _save() async {
-    if (blocks.isEmpty) return toast(context, 'Dodaj przynajmniej jeden blok');
+    if (blocks.isEmpty) return toast(context, 'Add at least one block');
     setState(() => saving = true);
     try {
       await Api.i.saveBoard(blocks);
       if (mounted) {
         setState(() => dirty = false);
-        toast(context, 'Tablica opublikowana ✓');
+        toast(context, 'Board published ✓');
       }
     } catch (e) {
       if (mounted) toast(context, err(e));
@@ -1758,7 +1758,7 @@ class _BoardScreenState extends State<BoardScreen> {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
         children: [
-          Header('Moja tablica', 'Twoje życie w kilku kafelkach',
+          Header('My board', 'Your life in a few tiles',
               trailing: IconButton(
                 icon: const Icon(Icons.settings_outlined, color: C.inkSoft),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
@@ -1768,9 +1768,9 @@ class _BoardScreenState extends State<BoardScreen> {
               child: Column(children: [
                 const Icon(Icons.dashboard_customize_outlined, size: 40, color: C.inkSoft),
                 const SizedBox(height: 12),
-                Text('Stwórz swoją tablicę', style: serif(20, w: FontWeight.w500)),
+                Text('Create your board', style: serif(20, w: FontWeight.w500)),
                 const SizedBox(height: 6),
-                Text('Dodaj bloki opisujące Twoje wartości, zainteresowania, ulubione filmy, książki i wiele więcej.',
+                Text('Add blocks describing your values, interests, favourite films, books and much more.',
                     textAlign: TextAlign.center,
                     style: serif(14, italic: true, c: C.inkSoft)),
               ]),
@@ -1779,14 +1779,14 @@ class _BoardScreenState extends State<BoardScreen> {
             BoardTiles(blocks, onTap: _edit),
           const SizedBox(height: 12),
           Row(children: [
-            Pill('+ Dodaj blok', ghost: true, onTap: () => _edit()),
+            Pill('+ Add block', ghost: true, onTap: () => _edit()),
             const SizedBox(width: 12),
-            if (dirty) Pill('Opublikuj', busy: saving, onTap: _save),
+            if (dirty) Pill('Publish', busy: saving, onTap: _save),
           ]),
           if (blocks.isNotEmpty && !dirty) ...[
             const SizedBox(height: 16),
             Center(
-              child: Text('Tablica jest opublikowana ✓', style: serif(13, italic: true, c: C.sage)),
+              child: Text('Board is published ✓', style: serif(13, italic: true, c: C.sage)),
             ),
           ],
         ],
@@ -1861,12 +1861,12 @@ class _BlockSheetState extends State<_BlockSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(widget.block == null ? 'Nowy blok' : 'Edytuj blok', style: serif(26)),
+          Text(widget.block == null ? 'New block' : 'Edit block', style: serif(26)),
           const SizedBox(height: 4),
-          Text(widget.block == null ? 'Wybierz kategorię lub stwórz własną' : 'Zmień treść według siebie',
+          Text(widget.block == null ? 'Choose a category or create your own' : 'Change the content your way',
               style: serif(14, italic: true, c: C.inkSoft)),
           const SizedBox(height: 14),
-          // Sugestie z ikonami i kolorami
+          // Suggestions with icons and colours
           Wrap(spacing: 8, runSpacing: 8, children: [
             for (final s in kBlockSuggestions)
               GestureDetector(
@@ -1897,7 +1897,7 @@ class _BlockSheetState extends State<_BlockSheet> {
           const SizedBox(height: 14),
           TextField(
             controller: name,
-            decoration: const InputDecoration(hintText: 'Tytuł bloku (lub wpisz własny)'),
+            decoration: const InputDecoration(hintText: 'Block title (or type your own)'),
           ),
           const SizedBox(height: 10),
           TextField(
@@ -1905,7 +1905,7 @@ class _BlockSheetState extends State<_BlockSheet> {
               minLines: 3,
               maxLines: 6,
               decoration: InputDecoration(
-                hintText: _selectedHint ?? 'Opisz to po swojemu…',
+                hintText: _selectedHint ?? 'Describe it your way…',
               )),
           const SizedBox(height: 16),
           Row(children: [
@@ -1913,11 +1913,11 @@ class _BlockSheetState extends State<_BlockSheet> {
               TextButton.icon(
                   onPressed: () => Navigator.pop(context, 'delete'),
                   icon: const Icon(Icons.delete_outline, size: 18, color: C.terracotta),
-                  label: const Text('Usuń', style: TextStyle(color: C.terracotta))),
+                  label: const Text('Delete', style: TextStyle(color: C.terracotta))),
             const Spacer(),
-            Pill('Zapisz', onTap: () {
+            Pill('Save', onTap: () {
               if (name.text.trim().isEmpty) {
-                toast(context, 'Podaj tytuł bloku');
+                toast(context, 'Enter a block title');
                 return;
               }
               Navigator.pop(context, Block(name.text.trim(), desc.text.trim()));
